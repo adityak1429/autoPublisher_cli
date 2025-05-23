@@ -6,10 +6,10 @@ const execAsync = util.promisify(exec);
 
 (async function main() {
   try {
-    const sellerId = core.getInput("seller-id");
-    const tenantId = core.getInput("tenant-id");
-    const clientId = core.getInput("client-id");
-    const clientSecret = core.getInput("client-secret");
+const sellerId = process.env['INPUT_SELLER_ID'];
+const tenantId = process.env['INPUT_TENANT_ID'];
+const clientId = process.env['INPUT_CLIENT_ID'];
+const clientSecret = process.env['INPUT_CLIENT_SECRET'];
     // const fileType = core.getInput("file-type"); // "flight", "msi", or "msix"
     // const filePath = core.getInput("file-path"); // generic file path
     // const flightName = core.getInput("flight-name"); // only for flight

@@ -19815,10 +19815,10 @@ var import_util = __toESM(require("util"));
 var execAsync = import_util.default.promisify(import_child_process.exec);
 (async function main() {
   try {
-    const sellerId = core.getInput("seller-id");
-    const tenantId = core.getInput("tenant-id");
-    const clientId = core.getInput("client-id");
-    const clientSecret = core.getInput("client-secret");
+    const sellerId = process.env["INPUT_SELLER_ID"];
+    const tenantId = process.env["INPUT_TENANT_ID"];
+    const clientId = process.env["INPUT_CLIENT_ID"];
+    const clientSecret = process.env["INPUT_CLIENT_SECRET"];
     console.log("sellerId", core.getInput("seller-id"));
     console.log("tenantId", core.getInput("tenant-id"));
     console.log("clientId", clientId);
