@@ -35,10 +35,10 @@ runs:
     - name: Setup msstore-cli
       uses: microsoft/setup-msstore-cli@v1.1
     - name: check
-      shell: bash
+      shell: cmd
       run: ls "${{ github.action_path }}"
     - name: Run main script
-      shell: bash
+      shell: cmd
       run: node "${{ github.action_path }}"/dist/x.js
 
 branding:

@@ -19819,7 +19819,7 @@ var execAsync = import_util.default.promisify(import_child_process.exec);
     const tenantId = core.getInput("tenant-id");
     const clientId = core.getInput("client-id");
     const clientSecret = core.getInput("client-secret");
-    let cmd = `msstore`;
+    let cmd = `msstore reconfigure -s ${sellerId} -t ${tenantId} -c ${clientId} -cs ${clientSecret}`;
     let { stdout, stderr } = await execAsync(cmd);
     if (stdout) core.info(stdout);
     if (stderr) core.warning(stderr);
