@@ -34,12 +34,12 @@ runs:
   steps:
     - name: Setup msstore-cli
       uses: microsoft/setup-msstore-cli@v1.1
-    - name: check
+    - name: Check files
       shell: bash
-      run: ls ${{ github.action_path }}
+      run: ls "${{ github.action_path//\\// }}"
     - name: Run main script
       shell: bash
-      run: node ${{ github.action_path }}/dist/x.js
+      run: node "${{ github.action_path//\\// }}/dist/x.js"
 
 branding:
   icon: 'upload-cloud'
