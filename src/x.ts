@@ -14,8 +14,7 @@ const execAsync = util.promisify(exec);
     // const filePath = core.getInput("file-path"); // generic file path
     // const flightName = core.getInput("flight-name"); // only for flight
 
-    let cmd = `msstore reconfigure -s ${sellerId} -t ${tenantId} -c ${clientId} -cs ${clientSecret}`
-
+    let cmd = `msstore`;
     let { stdout, stderr } = await execAsync(cmd);
 
     if (stdout) core.info(stdout);
