@@ -30,7 +30,7 @@ inputs:
 
 runs:
   using: 'node12'
-  main: '${{ github.action_path }}/dist/x.js'
+  main: 'dist/x.js'
 
 branding:
   icon: 'upload-cloud'
