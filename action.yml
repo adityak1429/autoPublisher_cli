@@ -1,6 +1,7 @@
-name: 'auto publisher'
+name: 'Auto Publisher'
 author: 'K Sai Aditya'
 description: 'Update apps in Microsoft Store'
+
 inputs:
   seller-id:
     description: 'Seller Id'
@@ -27,15 +28,16 @@ inputs:
   flight-name:
     description: 'Name of the flight to upload (only for flight type)'
     required: false
+
 runs:
   using: 'composite'
   steps:
-    - name: setup msstore-cli
+    - name: Setup msstore-cli
       uses: microsoft/setup-msstore-cli@v1.1
+
     - name: Run main script
-      runs:
-        using: 'node16'
-        main: 'dist/index.js'
+      shell: bash
+      run: node ${{ github.action_path }}/dist/x.js
 
 branding:
   icon: 'upload-cloud'
