@@ -36,7 +36,6 @@ runs:
       uses: microsoft/setup-msstore-cli@v1.1
 
     - name: Run main script
-      shell: bash
       run: node ${{ github.action_path }}/dist/x.js
 
 branding:
