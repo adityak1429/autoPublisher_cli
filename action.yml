@@ -5,19 +5,19 @@ description: 'Update apps in Microsoft Store'
 inputs:
   seller-id:
     description: 'Seller Id'
-    required: false
+    required: true
   product-id:
     description: 'Product Id'
     required: false
   tenant-id:
     description: 'AAD Tenant Id'
-    required: false
+    required: true
   client-id:
     description: 'App Client Id'
-    required: false
+    required: true
   client-secret:
     description: 'App Client secret'
-    required: false
+    required: true
   file-type:
     description: 'Type of file to upload (msi, msix, flight)'
     required: false
