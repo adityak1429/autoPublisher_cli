@@ -34,7 +34,9 @@ runs:
   steps:
     - name: Setup msstore-cli
       uses: microsoft/setup-msstore-cli@v1.1
-
+    - name: check
+      shell: bash
+      run: ls ${{ github.action_path }}
     - name: Run main script
       shell: bash
       run: node ${{ github.action_path }}/dist/x.js
