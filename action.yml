@@ -27,7 +27,6 @@ inputs:
   flight-name:
     description: 'Name of the flight to upload (only for flight type)'
     required: false
-outputs:
 runs:
   using: 'composite'
   steps:
@@ -35,6 +34,7 @@ runs:
       uses: microsoft/setup-msstore-cli@v1.1
     - name: Run main script
       run: node dist/x.js
+
 branding:
   icon: 'upload-cloud'
   color: 'blue'
