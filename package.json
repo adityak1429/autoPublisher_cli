@@ -1,4 +1,7 @@
 {
+  "scripts": {
+  "build": "esbuild src/x.ts --bundle --platform=node --target=node20 --outfile=dist/x.js"
+  },
   "build": {
     "win": {
       "target": [
@@ -17,9 +20,11 @@
   "devDependencies": {
     "@types/node": "^22.15.21",
     "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.4",
     "typescript": "^5.8.3"
   },
   "dependencies": {
     "@actions/core": "^1.11.1"
   }
+  
 }
