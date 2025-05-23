@@ -20,7 +20,7 @@ inputs:
     required: false
   file-type:
     description: 'Type of file to upload (msi, msix, flight)'
-    required: true
+    required: false
     default: 'msi'
   file-path:
     description: 'Path to the file to upload'
