@@ -1,0 +1,40 @@
+name: 'auto publisher'
+author: 'K Sai Aditya'
+description: 'Update apps in Microsoft Store'
+inputs:
+  seller-id:
+    description: 'Seller Id'
+    required: false
+  product-id:
+    description: 'Product Id'
+    required: false
+  tenant-id:
+    description: 'AAD Tenant Id'
+    required: false
+  client-id:
+    description: 'App Client Id'
+    required: false
+  client-secret:
+    description: 'App Client secret'
+    required: false
+  file-type:
+    description: 'Type of file to upload (msi, msix, flight)'
+    required: true
+    default: 'msi'
+  file-path:
+    description: 'Path to the file to upload'
+    required: false
+  flight-name:
+    description: 'Name of the flight to upload (only for flight type)'
+    required: false
+outputs:
+runs:
+  using: 'composite'
+  steps:
+    - name: setup msstore-cli
+      uses: microsoft/setup-msstore-cli@v1.1
+    - name: Run main script
+      run: node dist/x.js
+branding:
+  icon: 'upload-cloud'
+  color: 'blue'

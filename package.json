@@ -1,0 +1,25 @@
+{
+  "build": {
+    "win": {
+      "target": [
+        "appx"
+      ]
+    },
+    "appx": {
+      "applicationId": "App",
+      "displayName": "ConsoleCalci",
+      "publisher": "CN=D4613FE0-2033-479C-B9CF-441365368AFD",
+      "publisherDisplayName": "shieldindustries",
+      "identityName": "shieldindustries.42534984B2127"
+    }
+  },
+  "msstoreCliAppId": "9MSNJ31L16D2",
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1"
+  }
+}
