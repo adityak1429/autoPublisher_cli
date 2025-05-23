@@ -6,16 +6,15 @@ const execAsync = util.promisify(exec);
 
 (async function main() {
   try {
-    const productId = core.getInput("product-id");
     const sellerId = core.getInput("seller-id");
     const tenantId = core.getInput("tenant-id");
     const clientId = core.getInput("client-id");
     const clientSecret = core.getInput("client-secret");
-    const fileType = core.getInput("file-type"); // "flight", "msi", or "msix"
-    const filePath = core.getInput("file-path"); // generic file path
-    const flightName = core.getInput("flight-name"); // only for flight
+    // const fileType = core.getInput("file-type"); // "flight", "msi", or "msix"
+    // const filePath = core.getInput("file-path"); // generic file path
+    // const flightName = core.getInput("flight-name"); // only for flight
 
-    if (!productId || !sellerId || !tenantId || !clientId || !clientSecret || !fileType || !filePath) {
+    if (!sellerId || !tenantId || !clientId || !clientSecret) {
       throw new Error("Missing required input(s).");
     }
 
