@@ -33,8 +33,9 @@ runs:
     - name: setup msstore-cli
       uses: microsoft/setup-msstore-cli@v1.1
     - name: Run main script
-      run: node dist/x.js
-      shell: bash
+      runs:
+        using: 'node16'
+        main: 'dist/index.js'
 
 branding:
   icon: 'upload-cloud'
