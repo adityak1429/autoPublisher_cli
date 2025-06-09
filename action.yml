@@ -1,14 +1,17 @@
-name: 'Auto Publisher'
+name: 'auto publisher'
 author: 'K Sai Aditya'
 description: 'Update apps in Microsoft Store'
-
 inputs:
+  command:
+    description: 'The command to execute. Available command: getmetadata, getmetadataandfilter, publish'
+    required: true
+    default: 'publish'
+  product-id:
+    description: 'Product Id'
+    required: true
   seller-id:
     description: 'Seller Id'
     required: true
-  product-id:
-    description: 'Product Id'
-    required: false
   tenant-id:
     description: 'AAD Tenant Id'
     required: true
@@ -18,20 +21,18 @@ inputs:
   client-secret:
     description: 'App Client secret'
     required: true
-  file-type:
-    description: 'Type of file to upload (msi, msix, flight)'
+  package-path:
+    description: 'Path to the app directory to upload'
     required: false
-  file-path:
-    description: 'Path to the file to upload'
+  photos-path:
+    description: 'Path to the photos directory to upload'
     required: false
-  flight-name:
-    description: 'Name of the flight to upload (only for flight type)'
+  json-file-path:
+    description: 'Path to the JSON file containing app metadata'
     required: false
-
 runs:
   using: 'node12'
-  main: 'dist/x.js'
-
+  main: 'dist/main.js'
 branding:
   icon: 'upload-cloud'
   color: 'blue'

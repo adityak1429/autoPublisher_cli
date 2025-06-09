@@ -1,0 +1,128 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\title{Microsoft Store App Update Automation: Technical Flow Documentation}
+\author{Sai Aditya Kukudala}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This document describes the technical flow for automating Microsoft Store app updates using the \texttt{autoPublisher} CLI. It covers the API endpoints used, the structure of payloads, and the sequence of operations performed to update an app submission.
+
+\section{Update Flow Overview}
+The update process for a Microsoft Store app via automation consists of the following high-level steps:
+\begin{enumerate}
+    \item Authenticate and obtain an access token.
+    \item Delete any existing in-progress submission.
+    \item Create a new submission.
+    \item Prepare and update submission metadata.
+    \item Upload package and media assets.
+    \item Commit the submission.
+    \item Poll for submission status.
+\end{enumerate}
+
+\section{APIs Used}
+All API calls are made to the Microsoft Store Dev Center API (\url{https://manage.devcenter.microsoft.com/v1.0/my/}). Authentication uses Azure AD OAuth2.
+
+\begin{itemize}
+    \item \textbf{Token Endpoint:} \url{https://login.microsoftonline.com/\{tenantId\}/oauth2/token}
+    \item \textbf{Get App Data:} \texttt{GET applications/\{productId\}}
+    \item \textbf{Delete Submission:} \texttt{DELETE applications/\{productId\}/submissions/\{submissionId\}}
+    \item \textbf{Create Submission:} \texttt{POST applications/\{productId\}/submissions}
+    \item \textbf{Get Submission Metadata:} \texttt{GET applications/\{productId\}/submissions/\{submissionId\}}
+    \item \textbf{Update Submission Metadata:} \texttt{PUT applications/\{productId\}/submissions/\{submissionId\}}
+    \item \textbf{Commit Submission:} \texttt{POST applications/\{productId\}/submissions/\{submissionId\}/commit}
+    \item \textbf{Get Submission Status:} \texttt{GET applications/\{productId\}/submissions/\{submissionId\}/status}
+\end{itemize}
+
+\section{Authentication}
+OAuth2 client credentials flow is used. The following payload is sent to the token endpoint:
+\begin{verbatim}
+grant_type=client_credentials
+client_id=<client-id>
+client_secret=<client-secret>
+resource=https://manage.devcenter.microsoft.com
+\end{verbatim}
+The resulting \texttt{access\_token} is used as a Bearer token in all subsequent API requests.
+
+\section{Submission Metadata Payload}
+The main payload for updating a submission is a JSON object matching the \texttt{ApplicationSubmissionRequest} schema. Only a subset of fields are required for updates. Example structure:
+\begin{verbatim}
+{
+  "ApplicationCategory": "HealthAndFitness",
+  "Pricing": { ... },
+  "Visibility": "Public",
+  "TargetPublishMode": "Immediate",
+  "TargetPublishDate": "1601-01-01T00:00:00Z",
+  "Listings": {
+    "en-us": {
+      "BaseListing": {
+        "Description": "...",
+        "Images": [
+          {
+            "FileName": "Screenshot1.png",
+            "FileStatus": "PendingUpload",
+            "ImageType": "Screenshot"
+          }
+        ],
+        ...
+      }
+    }
+  },
+  "ApplicationPackages": [
+    {
+      "FileName": "myapp.msixbundle",
+      "FileStatus": "PendingUpload"
+    }
+  ],
+  "Trailers": [
+    {
+      "VideoFileName": "Trailer_demo.mp4",
+      "TrailerAssets": {
+        "en-us": {
+          "Title": "demo",
+          "ImageList": [
+            {
+              "FileName": "TrailerImage_demo.png",
+              "Description": null
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+\end{verbatim}
+\textbf{Note:} Fields like \texttt{ApplicationPackages} and \texttt{Images} must be managed carefully. Existing assets are marked \texttt{PendingDelete}, and new assets are added with \texttt{PendingUpload}.
+
+\section{Sequence of API Calls}
+\begin{enumerate}
+    \item \textbf{Authenticate:} Obtain access token.
+    \item \textbf{Get Current Submission:} \texttt{GET applications/\{productId\}} to check for pending submissions.
+    \item \textbf{Delete Submission:} If a pending submission exists, \texttt{DELETE} it.
+    \item \textbf{Create Submission:} \texttt{POST} to create a new submission.
+    \item \textbf{Get Metadata:} \texttt{GET} submission metadata for the new submission.
+    \item \textbf{Update Metadata:} \texttt{PUT} updated metadata payload.
+    \item \textbf{Upload Assets:} Use the \texttt{fileUploadUrl} from metadata to upload the package via Azure Blob Storage.
+    \item \textbf{Commit Submission:} \texttt{POST} to commit the submission.
+    \item \textbf{Poll Status:} \texttt{GET} status until published or failed.
+\end{enumerate}
+
+\section{Error Handling}
+Common errors include:
+\begin{itemize}
+    \item \textbf{InvalidState:} Submission is not in a modifiable state. Solution: Delete and recreate the submission.
+    \item \textbf{Schema Errors:} Payload does not match expected schema. Solution: Validate JSON structure and field types.
+    \item \textbf{Authentication Errors:} Invalid credentials or expired token.
+\end{itemize}
+
+\section{References}
+\begin{itemize}
+    \item \href{https://learn.microsoft.com/en-us/windows/uwp/publish/app-submission-api-overview}{Microsoft Store Submission API Overview}
+    \item \href{https://learn.microsoft.com/en-us/windows/uwp/publish/create-app-submission}{Create and manage app submissions}
+\end{itemize}
+
+\end{document}
