@@ -1,5 +1,6 @@
 import { apiRequest, setHeaders } from './apiHelper';
 import * as dotenv from "dotenv";
+const fs = require('fs');
 
 dotenv.config();
 const core = {
@@ -27,12 +28,55 @@ const core = {
 
 const url = 'https://manage.devcenter.microsoft.com/v1.0/my/';
 
+const ValidImageTypes: string[] = [
+  "Screenshot",
+  "MobileScreenshot",
+  "XboxScreenshot",
+  "SurfaceHubScreenshot",
+  "HoloLensScreenshot",
+  "StoreLogo9x16",
+  "StoreLogoSquare",
+  "Icon",
+  "PromotionalArt16x9",
+  "PromotionalArtwork2400X1200",
+  "XboxBrandedKeyArt",
+  "XboxTitledHeroArt",
+  "XboxFeaturedPromotionalArt",
+  "SquareIcon358X358",
+  "BackgroundImage1000X800",
+  "PromotionalArtwork414X180",
+];
+
+const fieldsNeccessary = [
+              "ApplicationCategory",
+              "Pricing",
+              "Visibility",
+              "TargetPublishMode",
+              "TargetPublishDate",
+              "Listings",
+              "HardwarePreferences",
+              "AutomaticBackupEnabled",
+              "CanInstallOnRemovableMedia",
+              "IsGameDvrEnabled",
+              "GamingOptions",
+              "HasExternalInAppProducts",
+              "MeetAccessibilityGuidelines",
+              "NotesForCertification",
+              "ApplicationPackages",
+              "PackageDeliveryOptions",
+              "EnterpriseLicensing",
+              "AllowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies",
+              "AllowTargetFutureDeviceFamilies",
+              "Trailers",
+            ];
+
 export class MSStoreClient {
     private accessToken: string | undefined;
     private submissionId: string = "";
 
 
     async configure() {
+        core.info("Starting the publish process...");
         const tenantId = core.getInput('tenant-id');
         const clientId = core.getInput('client-id');
         const clientSecret = core.getInput('client-secret');
@@ -66,15 +110,31 @@ export class MSStoreClient {
         return;
     }
 
+    async reserve_name(name: string): Promise<string>;
+    async reserve_name(name: string, publisherId: string): Promise<string>;
+    async reserve_name(name: string, publisherId?: string): Promise<string> {
+      if (!this.accessToken) {
+        core.setFailed('Access token is not set. Please run configure first.');
+        return "";
+      }
+      // Example: use publisherId if provided, otherwise fallback
+      if (publisherId) {
+        // Implement logic using publisherId if needed
+        return `${core.getInput('product-id')}:${publisherId}`;
+      }
+      return core.getInput('product-id');
+    }
+
     async createSubmission(productId: string) {
         try {
+            core.info("Creating a new submission...");
             const submissionResponse = await apiRequest<any>({
                 url: `${url}applications/${productId}/submissions`,
                 method: 'POST',
             });
             this.submissionId = submissionResponse.id;
-            return this.submissionId;
             core.info('Created new submission');
+            return this.submissionId;
         } catch (error) {
             core.setFailed(`Error creating new submission: ${error}`);
             return "";
@@ -215,6 +275,7 @@ export class MSStoreClient {
                 method: 'GET',
             });
             core.info('Got submission status successfully');
+            
         } catch (error) {
             core.setFailed(`Error getting submission status ${JSON.stringify(error, null, 2)}`);
         }
@@ -250,4 +311,149 @@ export class MSStoreClient {
             core.setFailed(`Error committing submission ${JSON.stringify(error, null, 2)}`);
         }
     }
+
+ 
+    /**
+ * Returns a new object containing only the specified fields from the source object.
+ */
+ filterFields<T extends object>(source: T):any {
+  const result: { [key: string]: unknown } = {};
+  for (const field of fieldsNeccessary) {
+    if (Object.prototype.hasOwnProperty.call(source, field)) {
+      result[field] = (source as any)[field];
+    }
+  }
+  return result;
+}
+
+/**
+ * Validates that all BaseListing.Images[].ImageType in each Listings locale are valid.
+ * Throws an error if any invalid type is found.
+ */
+ validate_json(input: any): void {
+        /** Expected ValidImageTypes values */
+  core.info("Validating JSON structure...");
+  if (!input || typeof input !== "object" || !input.Listings) {
+    throw new Error("Invalid input: Listings property missing.");
+  }
+  for (const locale of Object.keys(input.Listings)) {
+    const baseListing = input.Listings[locale]?.BaseListing;
+    if (!baseListing || !Array.isArray(baseListing.Images)) continue;
+    for (const img of baseListing.Images) {
+      if (!img.ImageType || !ValidImageTypes.includes(img.ImageType)) {
+        throw new Error(
+          `Invalid ImageType "${img.ImageType}" in locale "${locale}". Allowed types: ${ValidImageTypes.join(", ")}`
+        );
+      }
+    }
+  }
+}
+
+async add_files_to_metadata(metadata_json: any, packagePath: string, photosPath: string) {
+
+  metadata_json.Trailers = []; // Reinitialize Trailers 
+
+  // Set FileStatus to "PendingDelete" for all packages 
+  if (metadata_json.ApplicationPackages && Array.isArray(metadata_json.ApplicationPackages)) {
+    for (const pkg of metadata_json.ApplicationPackages) {
+      pkg.Status = "PendingDelete";
+    }
+  }
+
+  // Set FileStatus to "PendingDelete" for all images 
+  const listings = metadata_json?.Listings;
+  if (listings && typeof listings === "object") {
+  for (const locale of Object.keys(listings)) {
+    const images = listings[locale]?.BaseListing?.Images;
+    if (Array.isArray(images)) {
+    for (const img of images) {
+      img.FileStatus = "PendingDelete";
+    }
+    }
+  }
+  }
+
+
+
+  // PendingUpload for all packages
+  // Add entries for each file in packagePath directory to ApplicationPackages
+  const packageFiles = fs.readdirSync(packagePath);
+  for (const packEntry of packageFiles) {
+  const entry = {
+    FileName: packEntry,
+    FileStatus: "PendingUpload",
+  };
+  metadata_json.ApplicationPackages.push(entry);
+  }
+
+
+  // PendingUpload all photos and trailers
+  const photoFiles: string[] = [];
+  if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
+    for (const file of fs.readdirSync(photosPath)) {
+      // Infer image type from filename prefix (e.g., Screenshot_abc.png)
+      let type = file.split("_")[0];
+      // Add the image entry to all locales in Listings
+        if (ValidImageTypes.includes(type)) {
+          for (const locale of Object.keys(metadata_json.Listings)) {
+            if (
+              metadata_json.Listings[locale] &&
+              metadata_json.Listings[locale].BaseListing &&
+              Array.isArray(metadata_json.Listings[locale].BaseListing.Images)
+            ) {
+              metadata_json.Listings[locale].BaseListing.Images.push({
+              FileStatus: "PendingUpload",
+              FileName: file,
+              ImageType: type
+              });
+            }
+        }
+      }
+      else if (type === "TrailerImage") {
+        // Trailer images are handled separately
+        continue;
+      }
+      else if (type === "Trailer") {
+        let imageListJson: { [locale: string]: { Title: string; ImageList: any[] } } = {};
+        for (const locale of Object.keys(metadata_json.Listings)) {
+          imageListJson[locale] = { Title: "", ImageList: [] };
+        }
+
+        metadata_json.Trailers.push({ VideoFileName: file, TrailerAssets: imageListJson });
+      }
+      else {
+        core.warning(`Unknown media type "${type}" in file "${file}" check the prefix. Skipping.`);
+        continue;
+      }
+    }
+
+    // add all trailer images to metadata
+    for (const file of fs.readdirSync(photosPath)) {
+      // Infer image type from filename prefix (e.g., Screenshot_abc.png)
+      let type = file.split("_")[0];
+      // Add the image entry to all locales in Listings
+      if(type==="TrailerImage"){
+        for (const trailer of metadata_json.Trailers) {
+          const videoBaseName = trailer.VideoFileName.split("_")[1]?.split(".")[0];
+          const fileBaseName = file.split("_")[1]?.split(".")[0];
+          if (videoBaseName === fileBaseName) {
+            // For each locale in TrailerAssets, add the TrailerImage to ImageList
+            for (const locale of Object.keys(trailer.TrailerAssets)) {
+              if (Array.isArray(trailer.TrailerAssets[locale].ImageList)) {
+                trailer.TrailerAssets[locale].Title = trailer.TrailerAssets[locale].Title || videoBaseName;
+                trailer.TrailerAssets[locale].ImageList.push({
+                  FileName: file,
+                  Description: null
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return metadata_json;
+}
+
+    
 }

@@ -1,12 +1,9 @@
-import { exec } from "child_process";
-import util from "util";
 import {MSStoreClient} from './msstore'; // Ensure msstore-cli is installed and available in PATH
-const execAsync = util.promisify(exec);
-const diff = require("diff");
 const archiver = require("archiver");
 const path = require("path");
-const axios = (require("axios")).default;
 const fs = require("fs");
+import { generate_pdp } from './pdpPreview'; // Ensure pdpPreview.ts is in the same directory
+
 import { BlockBlobClient } from "@azure/storage-blob";
 
 // import * as core from "@actions/core";
@@ -33,7 +30,7 @@ const core = {
   setDebug(message: string): void {
     console.debug(`🐞 ${message}`);
   }
-};
+}
 
 let productId: string = "";
 let sellerId: string  = "";
@@ -45,46 +42,7 @@ let photosPath: string = "";
 let command: string = "";
 const msstore  = new MSStoreClient();
 
-/** Expected imageType values */
-const imageType: string[] = [
-  "Screenshot",
-  "MobileScreenshot",
-  "XboxScreenshot",
-  "SurfaceHubScreenshot",
-  "HoloLensScreenshot",
-  "StoreLogo9x16",
-  "StoreLogoSquare",
-  "Icon",
-  "PromotionalArt16x9",
-  "PromotionalArtwork2400X1200",
-  "XboxBrandedKeyArt",
-  "XboxTitledHeroArt",
-  "XboxFeaturedPromotionalArt",
-  "SquareIcon358X358",
-  "BackgroundImage1000X800",
-  "PromotionalArtwork414X180",
-];
- 
-/**
- * Validates that all BaseListing.Images[].ImageType in each Listings locale are valid.
- * Throws an error if any invalid type is found.
- */
-function validate_json(input: any): void {
-  if (!input || typeof input !== "object" || !input.Listings) {
-    throw new Error("Invalid input: Listings property missing.");
-  }
-  for (const locale of Object.keys(input.Listings)) {
-    const baseListing = input.Listings[locale]?.BaseListing;
-    if (!baseListing || !Array.isArray(baseListing.Images)) continue;
-    for (const img of baseListing.Images) {
-      if (!img.ImageType || !imageType.includes(img.ImageType)) {
-        throw new Error(
-          `Invalid ImageType "${img.ImageType}" in locale "${locale}". Allowed types: ${imageType.join(", ")}`
-        );
-      }
-    }
-  }
-}
+
 
 
 /**
@@ -137,41 +95,6 @@ export async function uploadFileToBlob(
   } catch (err: any) {
     throw new Error(`Upload failed: ${err.message || "Unknown error"}`);
   }
-}
-
-/**
- * Returns a new object containing only the specified fields from the source object.
- */
-function filterFields<T extends object>(source: T):any {
-  const fields = [
-    "ApplicationCategory",
-    "Pricing",
-    "Visibility",
-    "TargetPublishMode",
-    "TargetPublishDate",
-    "Listings",
-    "HardwarePreferences",
-    "AutomaticBackupEnabled",
-    "CanInstallOnRemovableMedia",
-    "IsGameDvrEnabled",
-    "GamingOptions",
-    "HasExternalInAppProducts",
-    "MeetAccessibilityGuidelines",
-    "NotesForCertification",
-    "ApplicationPackages",
-    "PackageDeliveryOptions",
-    "EnterpriseLicensing",
-    "AllowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies",
-    "AllowTargetFutureDeviceFamilies",
-    "Trailers",
-  ];
-  const result: { [key: string]: unknown } = {};
-  for (const field of fields) {
-    if (Object.prototype.hasOwnProperty.call(source, field)) {
-      result[field] = (source as any)[field];
-    }
-  }
-  return result;
 }
 
 
@@ -235,109 +158,37 @@ async function zipandUpload(uploadUrl: string) {
   }).catch(console.error);
 }
 
-async function add_files_to_metadata(metadata_json: any, packagePath: string, photosPath: string) {
-  metadata_json.Trailers = []; // Reinitialize Trailers 
-
-  // Set FileStatus to "PendingDelete" for all packages 
-  if (metadata_json.ApplicationPackages && Array.isArray(metadata_json.ApplicationPackages)) {
-    for (const pkg of metadata_json.ApplicationPackages) {
-      pkg.Status = "PendingDelete";
-    }
+async function readJSONFile(jsonFilePath: string): Promise<any> {
+  core.info("Reading JSON file for metadata");
+  try {
+    return JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
+      /"(?:[^"\\]|\\.)*"/g,
+      (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
+    ))
+    .then(core.info("JSON file read successfully. ..."));
+    
+  } 
+  catch (error) {
+    core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
+    core.warning(error as string);
+    return;// ideally exit to no check.
   }
-
-  // Set FileStatus to "PendingDelete" for all images 
-  const listings = metadata_json?.Listings;
-  if (listings && typeof listings === "object") {
-  for (const locale of Object.keys(listings)) {
-    const images = listings[locale]?.BaseListing?.Images;
-    if (Array.isArray(images)) {
-    for (const img of images) {
-      img.FileStatus = "PendingDelete";
-    }
-    }
-  }
-  }
+}
 
 
-
-  // PendingUpload for all packages
-  // Add entries for each file in packagePath directory to ApplicationPackages
-  const packageFiles = fs.readdirSync(packagePath);
-  for (const packEntry of packageFiles) {
-  const entry = {
-    FileName: packEntry,
-    FileStatus: "PendingUpload",
-  };
-  metadata_json.ApplicationPackages.push(entry);
-  }
-
-
-  // PendingUpload all photos and trailers
-  const photoFiles: string[] = [];
-  if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
-    for (const file of fs.readdirSync(photosPath)) {
-      // Infer image type from filename prefix (e.g., Screenshot_abc.png)
-      let type = file.split("_")[0];
-      // Add the image entry to all locales in Listings
-        if (imageType.includes(type)) {
-          for (const locale of Object.keys(metadata_json.Listings)) {
-            if (
-              metadata_json.Listings[locale] &&
-              metadata_json.Listings[locale].BaseListing &&
-              Array.isArray(metadata_json.Listings[locale].BaseListing.Images)
-            ) {
-              metadata_json.Listings[locale].BaseListing.Images.push({
-              FileStatus: "PendingUpload",
-              FileName: file,
-              ImageType: type
-              });
-            }
-        }
+async function waitForProceed(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+    process.stdin.once("data", (data) => {
+      if (data.toString().trim().toLowerCase() === "proceed") {
+        resolve();
+      } else {
+        core.setFailed("Did not receive 'proceed'. Exiting.");
+        process.exit(1);
       }
-      else if (type === "TrailerImage") {
-        // Trailer images are handled separately
-        continue;
-      }
-      else if (type === "Trailer") {
-        let imageListJson: { [locale: string]: { Title: string; ImageList: any[] } } = {};
-        for (const locale of Object.keys(metadata_json.Listings)) {
-          imageListJson[locale] = { Title: "", ImageList: [] };
-        }
-
-        metadata_json.Trailers.push({ VideoFileName: file, TrailerAssets: imageListJson });
-      }
-      else {
-        core.warning(`Unknown media type "${type}" in file "${file}" check the prefix. Skipping.`);
-        continue;
-      }
-    }
-
-    // add all trailer images to metadata
-    for (const file of fs.readdirSync(photosPath)) {
-      // Infer image type from filename prefix (e.g., Screenshot_abc.png)
-      let type = file.split("_")[0];
-      // Add the image entry to all locales in Listings
-      if(type==="TrailerImage"){
-        for (const trailer of metadata_json.Trailers) {
-          const videoBaseName = trailer.VideoFileName.split("_")[1]?.split(".")[0];
-          const fileBaseName = file.split("_")[1]?.split(".")[0];
-          if (videoBaseName === fileBaseName) {
-            // For each locale in TrailerAssets, add the TrailerImage to ImageList
-            for (const locale of Object.keys(trailer.TrailerAssets)) {
-              if (Array.isArray(trailer.TrailerAssets[locale].ImageList)) {
-                trailer.TrailerAssets[locale].Title = trailer.TrailerAssets[locale].Title || videoBaseName;
-                trailer.TrailerAssets[locale].ImageList.push({
-                  FileName: file,
-                  Description: null
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  return metadata_json;
+    });
+  });
 }
 
 (async function main() {
@@ -352,14 +203,12 @@ try {
 
     else if (command==="json_init") {
       const metadata_json = await msstore.getMetadata(productId);
-      core.info(JSON.stringify(filterFields(metadata_json),null,2));
+      core.info(JSON.stringify(msstore.filterFields(metadata_json),null,2));
     }
 
     else if(command==="publish") {
       //143 need packager too or check current msix consistent with metadata if msix provided
       //143 currenly assume msix is provided and is consistent with metadata
-      core.info("Starting the publish process...");
-
       await msstore.configure();
 
       core.info("deleting existing submission if any");
@@ -371,38 +220,18 @@ try {
       await msstore.deleteSubmission(productId);
 
       // true means create a new submission if it does not exist
-      core.info("Creating a new submission...");
       let id = await msstore.createSubmission(productId);
 
-      const jsonFilePath = core.getInput("json-file-path");
       let metadata_new_json: any;
-  
-      core.info("Reading JSON file for metadata");
-      try {
-        metadata_new_json = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
-          /"(?:[^"\\]|\\.)*"/g,
-          (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
-        ));
-        core.info("JSON file read successfully. ...");
-      } 
-      catch (error) {
-        core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
-        core.warning(error as string);
-        return;// ideally exit to no check.
-      }
+      const jsonFilePath = core.getInput("json-file-path");
+      metadata_new_json = await readJSONFile(jsonFilePath);// ideally exit to no check.
 
-      let filteredMetadata_new_json = filterFields(metadata_new_json);
-      filteredMetadata_new_json = await add_files_to_metadata(filteredMetadata_new_json, packagePath, photosPath);
+      let filteredMetadata_new_json = msstore.filterFields(metadata_new_json);
+      filteredMetadata_new_json = await msstore.add_files_to_metadata(filteredMetadata_new_json, packagePath, photosPath);
 
-      try {
-        await validate_json(filteredMetadata_new_json);
-      
-        await msstore.updateMetadata(productId,filteredMetadata_new_json);
-      }
-      catch (error) {
-        core.setFailed(`Failed to update metadata: ${error}`);
-        return; //ideally exit to no check?.
-      }
+      await msstore.validate_json(filteredMetadata_new_json);
+    
+      await msstore.updateMetadata(productId,filteredMetadata_new_json);
 
       // Fetch the upload URL for the package
       core.info("Fetching upload URL for the package...");
@@ -418,84 +247,83 @@ try {
       await msstore.pollStatus(productId);
 
     }
-    else if(command==="first_publish") {
+
+    else if(command==="pdp") {
+      const jsonFilePath = core.getInput("json-file-path");
+
+      let metadata_json: any;
+      metadata_json = await readJSONFile(jsonFilePath);
+
+      await generate_pdp(metadata_json,core.getInput("pdp-path"));
+
+    }
+
+    // else if(command==="reserve_name") {
+    //   // resrve another name for the product
+    // }
+
+    else if(command==="first_publish_1") {
       //143 need packager too or check current msix consistent with metadata if msix provided
       //143 currenly assume msix is provided and is consistent with metadata
-      core.info("Starting the publish process...");
 
       await msstore.configure();
 
-      core.info("deleting existing submission if any");
+      let productId = await msstore.reserve_name(core.getInput("product-name"));
+
+      // set the productId for further operations
 
       // false means do not create a new submission if it does not exist
       await msstore.getCurrentSubmissionId(productId,false);
 
-
+      core.info("deleting existing submission if any");
       await msstore.deleteSubmission(productId);
 
       // true means create a new submission if it does not exist
-      core.info("Creating a new submission...");
       let submission_id = await msstore.createSubmission(productId);
 
+      core.info("save this metadata to json file for future use");
+      let metadata_new_json = await msstore.getMetadata(productId);
+      metadata_new_json = msstore.filterFields(metadata_new_json);
+      if(packagePath!=""&&photosPath!="") {
+        metadata_new_json = await msstore.add_files_to_metadata(metadata_new_json, packagePath, photosPath);
+      }
+      await msstore.validate_json(metadata_new_json);
 
+      // const jsonFilePath = core.getInput("json-file-path");
+      // core.info(`Saving metadata to JSON file at ${jsonFilePath}`);
+      // await fs.promises
+      //   .writeFile(jsonFilePath, JSON.stringify(metadata_new_json, null, 2));
+      core.info("save and modify this.");
+      core.info(metadata_new_json);
+
+      // instruct user to visit the verification URL
       const verificationUrl = `https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/ageratings`; // Replace with your actual URL
       core.info(`Please visit the following URL to complete verification:\n${verificationUrl}`);
       core.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/properties`);
-      core.info("After completing the verification, type 'proceed' and press Enter to continue...");
+      core.info("After completing the verification, run action again with command first_publish_2 or if you want to see pdp run with command pdp...");
 
-      await new Promise<void>((resolve) => {
-        process.stdin.resume();
-        process.stdin.setEncoding("utf8");
-        process.stdin.once("data", (data) => {
-          if (data.toString().trim().toLowerCase() === "proceed") {
-            resolve();
-          } else {
-            core.setFailed("Did not receive 'proceed'. Exiting.");
-            process.exit(1);
-          }
-        });
-      });
+    }
+    else if(command==="first_publish_2") {
+
+      await msstore.configure();
 
       const jsonFilePath = core.getInput("json-file-path");
       let metadata_new_json: any;
   
-      core.info("Reading JSON file for metadata");
-      try {
-        metadata_new_json = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
-          /"(?:[^"\\]|\\.)*"/g,
-          (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
-        ));
-        core.info("JSON file read successfully. ...");
-      } 
-      catch (error) {
-        core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
-        core.warning(error as string);
-        return;// ideally exit to no check.
-      }
+      metadata_new_json = await readJSONFile(jsonFilePath);
 
-      let filteredMetadata_new_json = filterFields(metadata_new_json);
-      filteredMetadata_new_json = await add_files_to_metadata(filteredMetadata_new_json, packagePath, photosPath);
+      let filteredMetadata_new_json = msstore.filterFields(metadata_new_json);
+      filteredMetadata_new_json = await msstore.add_files_to_metadata(filteredMetadata_new_json, packagePath, photosPath);
+
+      await msstore.validate_json(filteredMetadata_new_json);
+    
+      await msstore.updateMetadata(productId,filteredMetadata_new_json);
 
 
-
-
-      try {
-        await validate_json(filteredMetadata_new_json);
-      
-        await msstore.updateMetadata(productId,filteredMetadata_new_json);
-      }
-      catch (error) {
-        core.setFailed(`Failed to update metadata: ${error}`);
-        return; //ideally exit to no check?.
-      }
-
-
-
-
-      // Fetch the upload URL for the package
-      core.info("Fetching upload URL for the package...");
-      metadata_new_json = await msstore.getMetadata(productId);
-
+      //143 remove this and take output from updateMetadata itself
+        metadata_new_json = await msstore.getMetadata(productId);
+        // Fetch the upload URL for the package
+        core.info("Fetching upload URL for the package...");
       const uploadUrl = metadata_new_json.fileUploadUrl;
 
       await zipandUpload(uploadUrl);

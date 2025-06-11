@@ -11,6 +11,7 @@
     "mod": "esbuild src/main.ts --bundle --platform=node --outfile=dist/main.js && cd dist && node main.js"
   },
   "dependencies": {
+    "@actions/artifact": "^2.3.2",
     "@actions/core": "^1.11.1",
     "@azure/storage-blob": "^12.27.0",
     "archiver": "^7.0.1",
