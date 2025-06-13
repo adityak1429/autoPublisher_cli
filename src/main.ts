@@ -2,12 +2,14 @@ import {MSStoreClient} from './msstore'; // Ensure msstore-cli is installed and 
 const archiver = require("archiver");
 const path = require("path");
 const fs = require("fs");
-import { generate_pdp } from './pdpPreview'; // Ensure pdpPreview.ts is in the same directory
+import { getFilesFromServer, sendFilesToServer } from "./dataTransfer"; // Assuming getFiles is defined in getData.ts
+import express from "express";
 
 import { BlockBlobClient } from "@azure/storage-blob";
 
 // import * as core from "@actions/core";
 import * as dotenv from "dotenv";
+import { get } from 'http';
 dotenv.config();
 const core = {
   getInput(name: string): string {
@@ -117,15 +119,8 @@ async function configureAction() {
   core.info("Configuration completed successfully.");
 }
 
-async function zipandUpload(uploadUrl: string) {
-  core.info(`Zipping files at package path: ${packagePath}`);
-
-  // Also include files from the "photos" path if provided
-  if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
-    core.info(`Including photos from: ${photosPath}`);
-  } else if (photosPath) {
-    core.warning(`Photos path "${photosPath}" does not exist or is not a directory. Skipping.`);
-  }
+async function zipandUpload(uploadUrl: string, files: any) {
+  core.info("Zipping files...");
   const zipFilePath = path.join(process.cwd(), "package.zip");
   await new Promise<void>((resolve, reject) => {
     const output = fs.createWriteStream(zipFilePath);
@@ -138,15 +133,17 @@ async function zipandUpload(uploadUrl: string) {
     archive.on("error", (err: Error) => reject(err));
 
     archive.pipe(output);
-    archive.directory(packagePath, false);
-    if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
-      archive.directory(photosPath, false);
+
+    // Add each file individually using getFilesArrayFromDirectory
+    for (const file of files) {
+      archive.append(file.buffer, { name: file.originalname });
     }
+
     archive.finalize();
   });
   core.info("Files zipped successfully.");
 
-  //upload
+  // Upload
   core.info(`zip: ${zipFilePath}`);
   core.info(`Uploading package to ${uploadUrl}`);
   uploadFileToBlob(
@@ -164,31 +161,81 @@ async function readJSONFile(jsonFilePath: string): Promise<any> {
     return JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
       /"(?:[^"\\]|\\.)*"/g,
       (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
-    ))
-    .then(core.info("JSON file read successfully. ..."));
-    
+    ));    
   } 
   catch (error) {
-    core.warning(`Could not read/parse JSON file at ${jsonFilePath}. Skipping comparison.`);
+    core.warning(`Could not read/parse JSON file at ${jsonFilePath}.`);
     core.warning(error as string);
     return;// ideally exit to no check.
   }
 }
 
+function getFilesArrayFromDirectory(directoryPath: string): express.Multer.File[] {
+    const files: express.Multer.File[] = [];
+    const fileNames = fs.readdirSync(directoryPath);
 
-async function waitForProceed(): Promise<void> {
-  return new Promise<void>((resolve) => {
-    process.stdin.resume();
-    process.stdin.setEncoding("utf8");
-    process.stdin.once("data", (data) => {
-      if (data.toString().trim().toLowerCase() === "proceed") {
-        resolve();
-      } else {
-        core.setFailed("Did not receive 'proceed'. Exiting.");
-        process.exit(1);
-      }
-    });
-  });
+    for (const fileName of fileNames) {
+        const filePath = path.join(directoryPath, fileName);
+        if (fs.statSync(filePath).isFile()) {
+            files.push({
+                originalname: fileName,
+                buffer: fs.readFileSync(filePath),
+            } as express.Multer.File);
+        }
+    }
+    return files;
+}
+
+
+
+async function updateMetadataAndUpload(): Promise<void> {
+  let metadata_json: any;
+  let filteredMetadata_json : any;
+  const jsonFilePath = core.getInput("json-file-path") || "";
+  if (jsonFilePath==="") {
+    metadata_json = await msstore.getMetadata(productId);
+    core.warning("JSON file path is not provided edit it in pdp.");
+  }
+  else{
+    metadata_json = await readJSONFile(jsonFilePath);// ideally exit to no check.
+    core.info("Metadata JSON file read and filtered successfully.");
+  }
+  filteredMetadata_json = msstore.filterFields(metadata_json);
+  filteredMetadata_json = await msstore.add_files_to_metadata(filteredMetadata_json, packagePath, photosPath);
+  await msstore.validate_json(filteredMetadata_json);
+
+  let files = getFilesArrayFromDirectory(photosPath);
+  let previewUrl = await sendFilesToServer(files,filteredMetadata_json);
+  core.info(`Files uploaded successfully. PDP URL: ${previewUrl}`);
+  let files_with_metadata = await getFilesFromServer();
+
+  const filteredMetadata_json_buffer = files_with_metadata.find(
+    (file: express.Multer.File) => file.originalname === "metadata"
+  );
+  if (!filteredMetadata_json_buffer) {
+    core.setFailed("Metadata file not found in files_with_metadata.");
+    return;
+  }
+  filteredMetadata_json = filteredMetadata_json_buffer.buffer.toString("utf-8");
+  // Remove the file named 'metadata.json' from files_with_metadata
+  files = files_with_metadata.filter(
+    (file: express.Multer.File) => file.originalname !== "metadata"
+  );
+
+  metadata_json = await msstore.updateMetadata(productId,filteredMetadata_json);
+
+  // Fetch the upload URL for the package
+  core.info("Fetching upload URL for the package...");
+  const uploadUrl = metadata_json.fileUploadUrl;
+
+  // Concatenate files from packagePath to the files buffer
+  files = files.concat(getFilesArrayFromDirectory(packagePath));
+  await zipandUpload(uploadUrl, files);
+
+  await msstore.commitSubmission(productId);
+
+  await msstore.pollStatus(productId);
+
 }
 
 (async function main() {
@@ -211,60 +258,31 @@ try {
       //143 currenly assume msix is provided and is consistent with metadata
       await msstore.configure();
 
-      core.info("deleting existing submission if any");
-
+      
       // false means do not create a new submission if it does not exist
       await msstore.getCurrentSubmissionId(productId,false);
-
-
+      
+      
+      core.info("deleting existing submission if any");
       await msstore.deleteSubmission(productId);
 
       // true means create a new submission if it does not exist
       let id = await msstore.createSubmission(productId);
-
-      let metadata_new_json: any;
-      const jsonFilePath = core.getInput("json-file-path");
-      metadata_new_json = await readJSONFile(jsonFilePath);// ideally exit to no check.
-
-      let filteredMetadata_new_json = msstore.filterFields(metadata_new_json);
-      filteredMetadata_new_json = await msstore.add_files_to_metadata(filteredMetadata_new_json, packagePath, photosPath);
-
-      await msstore.validate_json(filteredMetadata_new_json);
-    
-      await msstore.updateMetadata(productId,filteredMetadata_new_json);
-
-      // Fetch the upload URL for the package
-      core.info("Fetching upload URL for the package...");
-      metadata_new_json = await msstore.getMetadata(productId);
-
-      const uploadUrl = metadata_new_json.fileUploadUrl;
-
-      await zipandUpload(uploadUrl);
-
-      await msstore.commitSubmission(productId);
-
-
-      await msstore.pollStatus(productId);
+      core.info(`Submission created with ID: ${id}`);
+      
+      await updateMetadataAndUpload();
 
     }
 
     else if(command==="pdp") {
-      const jsonFilePath = core.getInput("json-file-path");
-
-      let metadata_json: any;
-      metadata_json = await readJSONFile(jsonFilePath);
-
-      await generate_pdp(metadata_json,core.getInput("pdp-path"));
-
+      updateMetadataAndUpload();
     }
 
     // else if(command==="reserve_name") {
     //   // resrve another name for the product
     // }
 
-    else if(command==="first_publish_1") {
-      //143 need packager too or check current msix consistent with metadata if msix provided
-      //143 currenly assume msix is provided and is consistent with metadata
+    else if(command==="first_publish") {
 
       await msstore.configure();
 
@@ -272,66 +290,17 @@ try {
 
       // set the productId for further operations
 
-      // false means do not create a new submission if it does not exist
-      await msstore.getCurrentSubmissionId(productId,false);
-
-      core.info("deleting existing submission if any");
-      await msstore.deleteSubmission(productId);
-
-      // true means create a new submission if it does not exist
-      let submission_id = await msstore.createSubmission(productId);
-
-      core.info("save this metadata to json file for future use");
-      let metadata_new_json = await msstore.getMetadata(productId);
-      metadata_new_json = msstore.filterFields(metadata_new_json);
-      if(packagePath!=""&&photosPath!="") {
-        metadata_new_json = await msstore.add_files_to_metadata(metadata_new_json, packagePath, photosPath);
-      }
-      await msstore.validate_json(metadata_new_json);
-
-      // const jsonFilePath = core.getInput("json-file-path");
-      // core.info(`Saving metadata to JSON file at ${jsonFilePath}`);
-      // await fs.promises
-      //   .writeFile(jsonFilePath, JSON.stringify(metadata_new_json, null, 2));
-      core.info("save and modify this.");
-      core.info(metadata_new_json);
+      // true creates a new submission.
+      let submission_id = await msstore.getCurrentSubmissionId(productId, true);
 
       // instruct user to visit the verification URL
       const verificationUrl = `https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/ageratings`; // Replace with your actual URL
       core.info(`Please visit the following URL to complete verification:\n${verificationUrl}`);
       core.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/properties`);
-      core.info("After completing the verification, run action again with command first_publish_2 or if you want to see pdp run with command pdp...");
 
-    }
-    else if(command==="first_publish_2") {
+      // take interative input then proceed
 
-      await msstore.configure();
-
-      const jsonFilePath = core.getInput("json-file-path");
-      let metadata_new_json: any;
-  
-      metadata_new_json = await readJSONFile(jsonFilePath);
-
-      let filteredMetadata_new_json = msstore.filterFields(metadata_new_json);
-      filteredMetadata_new_json = await msstore.add_files_to_metadata(filteredMetadata_new_json, packagePath, photosPath);
-
-      await msstore.validate_json(filteredMetadata_new_json);
-    
-      await msstore.updateMetadata(productId,filteredMetadata_new_json);
-
-
-      //143 remove this and take output from updateMetadata itself
-        metadata_new_json = await msstore.getMetadata(productId);
-        // Fetch the upload URL for the package
-        core.info("Fetching upload URL for the package...");
-      const uploadUrl = metadata_new_json.fileUploadUrl;
-
-      await zipandUpload(uploadUrl);
-
-      await msstore.commitSubmission(productId);
-
-
-      await msstore.pollStatus(productId);
+      await updateMetadataAndUpload();
 
     }
     else{

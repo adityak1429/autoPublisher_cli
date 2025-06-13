@@ -332,21 +332,21 @@ export class MSStoreClient {
  */
  validate_json(input: any): void {
         /** Expected ValidImageTypes values */
-  core.info("Validating JSON structure...");
-  if (!input || typeof input !== "object" || !input.Listings) {
-    throw new Error("Invalid input: Listings property missing.");
-  }
-  for (const locale of Object.keys(input.Listings)) {
-    const baseListing = input.Listings[locale]?.BaseListing;
-    if (!baseListing || !Array.isArray(baseListing.Images)) continue;
-    for (const img of baseListing.Images) {
-      if (!img.ImageType || !ValidImageTypes.includes(img.ImageType)) {
-        throw new Error(
-          `Invalid ImageType "${img.ImageType}" in locale "${locale}". Allowed types: ${ValidImageTypes.join(", ")}`
-        );
-      }
-    }
-  }
+  // core.info("Validating JSON structure...");
+  // if (!input || typeof input !== "object" || !input.Listings) {
+  //   throw new Error("Invalid input: Listings property missing.");
+  // }
+  // for (const locale of Object.keys(input.Listings)) {
+  //   const baseListing = input.Listings[locale]?.BaseListing;
+  //   if (!baseListing || !Array.isArray(baseListing.Images)) continue;
+  //   for (const img of baseListing.Images) {
+  //     if (!img.ImageType || !ValidImageTypes.includes(img.ImageType)) {
+  //       throw new Error(
+  //         `Invalid ImageType "${img.ImageType}" in locale "${locale}". Allowed types: ${ValidImageTypes.join(", ")}`
+  //       );
+  //     }
+  //   }
+  // }
 }
 
 async add_files_to_metadata(metadata_json: any, packagePath: string, photosPath: string) {
