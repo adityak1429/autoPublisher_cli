@@ -48,27 +48,28 @@ const ValidImageTypes: string[] = [
 ];
 
 const fieldsNeccessary = [
-              "ApplicationCategory",
-              "Pricing",
-              "Visibility",
-              "TargetPublishMode",
-              "TargetPublishDate",
-              "Listings",
-              "HardwarePreferences",
-              "AutomaticBackupEnabled",
-              "CanInstallOnRemovableMedia",
-              "IsGameDvrEnabled",
-              "GamingOptions",
-              "HasExternalInAppProducts",
-              "MeetAccessibilityGuidelines",
-              "NotesForCertification",
-              "ApplicationPackages",
-              "PackageDeliveryOptions",
-              "EnterpriseLicensing",
-              "AllowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies",
-              "AllowTargetFutureDeviceFamilies",
-              "Trailers",
+              "applicationCategory",
+              "pricing",
+              "visibility",
+              "targetPublishMode",
+              "targetPublishDate",
+              "listings",
+              "hardwarePreferences",
+              "automaticBackupEnabled",
+              "canInstallOnRemovableMedia",
+              "isGameDvrEnabled",
+              "gamingOptions",
+              "hasExternalInAppProducts",
+              "meetAccessibilityGuidelines",
+              // "applicationPackages",
+              "notesForCertification",
+              "packageDeliveryOptions",
+              "enterpriseLicensing",
+              "allowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies",
+              "allowTargetFutureDeviceFamilies",
+              "trailers",
             ];
+
 
 export class MSStoreClient {
     private accessToken: string | undefined;
@@ -151,7 +152,7 @@ export class MSStoreClient {
             });
             core.info('Getting app data');
         } catch (error) {
-            core.setFailed(`Error checking current submissions ${error}`);
+            core.setFailed(`Error checking current submissions get on ${url}applications/${productId} ${JSON.stringify(error, null, 2)}`);
             return "";
         }
 
@@ -202,12 +203,30 @@ export class MSStoreClient {
             core.setFailed(`Error getting metadata for current submissions ${error}`);
             return null;
         }
-
-        return metadata;
-
+        return this.toLowerCaseKeys(metadata);
+    }
+    /**
+     * Recursively converts the first letter of all JSON object keys to lower case.
+     */
+    toLowerCaseKeys(obj: any): any {
+      if (Array.isArray(obj)) {
+        return obj.map(item => this.toLowerCaseKeys(item));
+      } else if (obj !== null && typeof obj === 'object') {
+        const newObj: any = {};
+        for (const key of Object.keys(obj)) {
+          const newKey = key.charAt(0).toLowerCase() + key.slice(1);
+          newObj[newKey] = this.toLowerCaseKeys(obj[key]);
+        }
+        return newObj;
+      }
+      return obj;
     }
 
     async updateMetadata(productId: string, metadata: any) {
+        metadata = this.toLowerCaseKeys(metadata);
+
+        // validate_json(metadata, fieldsNeccessary);
+
         if (!this.accessToken) {
             core.setFailed('Access token is not set. Please run configure first.');
             return;
@@ -219,17 +238,17 @@ export class MSStoreClient {
         }
 
         //submit metadata to API
-        core.info(`Updating metadata for current submission with id ${this.submissionId}`);
+        core.info(`Updating metadata for current submission with id ${this.submissionId} with metadata: ${JSON.stringify(metadata, null, 2)}`);
         let res: any = {};
         try {
             res = await apiRequest<any>({
                 url: `${url}applications/${productId}/submissions/${this.submissionId}`,
                 method: 'PUT',
-                body: JSON.stringify(metadata,null,2),
+                body: JSON.stringify(metadata, null, 2),
             });
             core.info('Metadata updated successfully');
         } catch (error) {
-            core.setFailed(`Error updating metadata for current submission ${JSON.stringify(error,null,2)}`);
+            core.setFailed(`Error updating metadata for current submission ${JSON.stringify(error, null, 2)}`);
         }
         return res;
     }
@@ -242,7 +261,8 @@ export class MSStoreClient {
 
         if (!this.submissionId || this.submissionId === "") {
             // If submissionId is not set, we need to create or get the current submission
-        return core.setFailed('Submission ID is not set. Please run getCurrentSubmissionId first.');
+         core.setFailed('Submission ID is not set. Please run getCurrentSubmissionId first.');
+         return;
         }
 
         try {
@@ -316,143 +336,246 @@ export class MSStoreClient {
     /**
  * Returns a new object containing only the specified fields from the source object.
  */
- filterFields<T extends object>(source: T):any {
-  const result: { [key: string]: unknown } = {};
-  for (const field of fieldsNeccessary) {
-    if (Object.prototype.hasOwnProperty.call(source, field)) {
-      result[field] = (source as any)[field];
+ filterFields<T extends object>(source: T): any {
+        const result: { [key: string]: unknown } = {};
+        const sourceKeys = Object.keys(source).reduce((acc, key) => {
+            acc[key] = key;
+            return acc;
+        }, {} as Record<string, string>);
+
+        for (const field of fieldsNeccessary) {
+            if (sourceKeys[field]) {
+                const originalKey = sourceKeys[field];
+                result[field] = (source as any)[originalKey];
+            }
+        }
+        // Remove images from baseListing in listings locales
+        if (result.listings && typeof result.listings === "object") {
+            const listings = result.listings as { [key: string]: any };
+            for (const locale of Object.keys(listings)) {
+                if (
+                    listings[locale] &&
+                    listings[locale].baseListing &&
+                    "images" in listings[locale].baseListing
+                ) {
+                    delete listings[locale].baseListing.images;
+                }
+            }
+        }
+        if (
+          (!result.allowTargetFutureDeviceFamilies || Object.keys(result.allowTargetFutureDeviceFamilies).length === 0)
+        ) {
+          result.allowTargetFutureDeviceFamilies = {
+            Desktop: false,
+            Mobile: false,
+            Xbox: false,
+            Holographic: false
+          };
+        }
+        return result;
     }
-  }
-  return result;
-}
 
-/**
- * Validates that all BaseListing.Images[].ImageType in each Listings locale are valid.
- * Throws an error if any invalid type is found.
- */
- validate_json(input: any): void {
-        /** Expected ValidImageTypes values */
-  // core.info("Validating JSON structure...");
-  // if (!input || typeof input !== "object" || !input.Listings) {
-  //   throw new Error("Invalid input: Listings property missing.");
-  // }
-  // for (const locale of Object.keys(input.Listings)) {
-  //   const baseListing = input.Listings[locale]?.BaseListing;
-  //   if (!baseListing || !Array.isArray(baseListing.Images)) continue;
-  //   for (const img of baseListing.Images) {
-  //     if (!img.ImageType || !ValidImageTypes.includes(img.ImageType)) {
-  //       throw new Error(
-  //         `Invalid ImageType "${img.ImageType}" in locale "${locale}". Allowed types: ${ValidImageTypes.join(", ")}`
-  //       );
-  //     }
-  //   }
-  // }
-}
+    async add_files_to_metadata(productId: string, metadata_json: any, packageFiles: any, mediaFiles: any) {
+        // Ensure applicationPackages exists and is an array
+        if (!Array.isArray(metadata_json.applicationPackages)) {
+            metadata_json.applicationPackages = [];
+        }
 
-async add_files_to_metadata(metadata_json: any, packagePath: string, photosPath: string) {
+        // Ensure listings exists and each locale has baseListing.images as an array
+        if (metadata_json.listings && typeof metadata_json.listings === "object") {
+            for (const locale of Object.keys(metadata_json.listings)) {
+                if (
+                    !metadata_json.listings[locale].baseListing ||
+                    typeof metadata_json.listings[locale].baseListing !== "object"
+                ) {
+                    metadata_json.listings[locale].baseListing = {};
+                }
+                if (!Array.isArray(metadata_json.listings[locale].baseListing.images)) {
+                    metadata_json.listings[locale].baseListing.images = [];
+                }
+            }
+        }
 
-  metadata_json.Trailers = []; // Reinitialize Trailers 
+        // Ensure trailers exists and is an array
+        if (!Array.isArray(metadata_json.trailers)) {
+            metadata_json.trailers = [];
+        }
 
-  // Set FileStatus to "PendingDelete" for all packages 
-  if (metadata_json.ApplicationPackages && Array.isArray(metadata_json.ApplicationPackages)) {
-    for (const pkg of metadata_json.ApplicationPackages) {
-      pkg.Status = "PendingDelete";
-    }
-  }
+        metadata_json.trailers = []; // Reinitialize trailers 
 
-  // Set FileStatus to "PendingDelete" for all images 
-  const listings = metadata_json?.Listings;
-  if (listings && typeof listings === "object") {
-  for (const locale of Object.keys(listings)) {
-    const images = listings[locale]?.BaseListing?.Images;
-    if (Array.isArray(images)) {
-    for (const img of images) {
-      img.FileStatus = "PendingDelete";
-    }
-    }
-  }
-  }
-
-
-
-  // PendingUpload for all packages
-  // Add entries for each file in packagePath directory to ApplicationPackages
-  const packageFiles = fs.readdirSync(packagePath);
-  for (const packEntry of packageFiles) {
-  const entry = {
-    FileName: packEntry,
-    FileStatus: "PendingUpload",
-  };
-  metadata_json.ApplicationPackages.push(entry);
-  }
-
-
-  // PendingUpload all photos and trailers
-  const photoFiles: string[] = [];
-  if (photosPath && fs.existsSync(photosPath) && fs.statSync(photosPath).isDirectory()) {
-    for (const file of fs.readdirSync(photosPath)) {
-      // Infer image type from filename prefix (e.g., Screenshot_abc.png)
-      let type = file.split("_")[0];
-      // Add the image entry to all locales in Listings
-        if (ValidImageTypes.includes(type)) {
-          for (const locale of Object.keys(metadata_json.Listings)) {
+        let metadata_in_portal = await this.getMetadata(productId);
+        core.info("Metadata JSON in portal: " + JSON.stringify(metadata_in_portal, null, 2));
+        if (metadata_in_portal) {
+            // Copy applicationPackages from portal to metadata_json
+            if (Array.isArray(metadata_in_portal.applicationPackages)) {
+                metadata_json.applicationPackages = metadata_in_portal.applicationPackages;
+            }
+            
+            // Copy images for each locale in listings from portal to metadata_json
             if (
-              metadata_json.Listings[locale] &&
-              metadata_json.Listings[locale].BaseListing &&
-              Array.isArray(metadata_json.Listings[locale].BaseListing.Images)
+                metadata_in_portal.listings &&
+                typeof metadata_in_portal.listings === "object" &&
+                metadata_json.listings &&
+                typeof metadata_json.listings === "object"
             ) {
-              metadata_json.Listings[locale].BaseListing.Images.push({
-              FileStatus: "PendingUpload",
-              FileName: file,
-              ImageType: type
-              });
+                for (const locale of Object.keys(metadata_json.listings)) {
+                    if (
+                        metadata_in_portal.listings[locale] &&
+                        metadata_in_portal.listings[locale].baseListing &&
+                        Array.isArray(metadata_in_portal.listings[locale].baseListing.images)
+                    ) {
+                        if (
+                            metadata_json.listings[locale] &&
+                            metadata_json.listings[locale].baseListing
+                        ) {
+                            metadata_json.listings[locale].baseListing.images = JSON.parse(
+                                JSON.stringify(metadata_in_portal.listings[locale].baseListing.images)
+                            );
+                        }
+                    }
+                }
             }
         }
-      }
-      else if (type === "TrailerImage") {
-        // Trailer images are handled separately
-        continue;
-      }
-      else if (type === "Trailer") {
-        let imageListJson: { [locale: string]: { Title: string; ImageList: any[] } } = {};
-        for (const locale of Object.keys(metadata_json.Listings)) {
-          imageListJson[locale] = { Title: "", ImageList: [] };
+
+
+        if (!metadata_json.listings || Object.keys(metadata_json.listings).length === 0) {
+          core.warning("No listings found in metadata_json, skipping file/media addition.");
+          return metadata_json;
         }
 
-        metadata_json.Trailers.push({ VideoFileName: file, TrailerAssets: imageListJson });
-      }
-      else {
-        core.warning(`Unknown media type "${type}" in file "${file}" check the prefix. Skipping.`);
-        continue;
-      }
-    }
-
-    // add all trailer images to metadata
-    for (const file of fs.readdirSync(photosPath)) {
-      // Infer image type from filename prefix (e.g., Screenshot_abc.png)
-      let type = file.split("_")[0];
-      // Add the image entry to all locales in Listings
-      if(type==="TrailerImage"){
-        for (const trailer of metadata_json.Trailers) {
-          const videoBaseName = trailer.VideoFileName.split("_")[1]?.split(".")[0];
-          const fileBaseName = file.split("_")[1]?.split(".")[0];
-          if (videoBaseName === fileBaseName) {
-            // For each locale in TrailerAssets, add the TrailerImage to ImageList
-            for (const locale of Object.keys(trailer.TrailerAssets)) {
-              if (Array.isArray(trailer.TrailerAssets[locale].ImageList)) {
-                trailer.TrailerAssets[locale].Title = trailer.TrailerAssets[locale].Title || videoBaseName;
-                trailer.TrailerAssets[locale].ImageList.push({
-                  FileName: file,
-                  Description: null
-                });
-              }
+        // Set fileStatus to "PendingDelete" for all packages 
+        if (metadata_json.applicationPackages && Array.isArray(metadata_json.applicationPackages)) {
+            for (const pkg of metadata_json.applicationPackages) {
+                pkg.fileStatus = "PendingDelete";
             }
-          }
         }
-      }
+
+        // Set fileStatus to "PendingDelete" for all images 
+        const listings = metadata_json?.listings;
+        if (listings && typeof listings === "object") {
+            for (const locale of Object.keys(listings)) {
+                const images = listings[locale]?.baseListing?.images;
+                if (Array.isArray(images)) {
+                    for (const img of images) {
+                        img.fileStatus = "PendingDelete";
+                    }
+                }
+            }
+        }
+
+        // PendingUpload for all packages
+        // Add entries for each file in packagePath directory to applicationPackages
+        for (const packEntry of packageFiles) {
+            const fileName = packEntry.filename || packEntry.originalname;
+            const entry = {
+                fileName: fileName,
+                fileStatus: "PendingUpload",
+            };
+            metadata_json.applicationPackages.push(entry);
+        }
+
+        // PendingUpload all photos and trailers
+        for (const file of mediaFiles) {
+            const fileName = file.filename || file.originalname;
+            if (!fileName) {
+                core.warning("File name is missing, skipping this file.");
+                continue;
+            }
+            // Parse type and locale from naming convention: Screenshot_en_fasdf.png or Screenshot_all_gs.png
+            // Example: Screenshot_en_fasdf.png -> type=Screenshot, locale=en
+            // Example: Screenshot_all_gs.png -> type=Screenshot, locale=all
+            const nameParts = fileName.split("_");
+            const type = nameParts[0];
+            const locale = nameParts.length > 1 ? nameParts[1] : null;
+
+            if (ValidImageTypes.includes(type) && locale) {
+                if (locale === "all") {
+                    // Add to all locales
+                    for (const loc of Object.keys(metadata_json.listings)) {
+                        if (
+                            metadata_json.listings[loc] &&
+                            metadata_json.listings[loc].baseListing &&
+                            Array.isArray(metadata_json.listings[loc].baseListing.images)
+                        ) {
+                            metadata_json.listings[loc].baseListing.images.push({
+                                fileStatus: "PendingUpload",
+                                fileName: fileName,
+                                ImageType: type
+                            });
+                        }
+                    }
+                } else if (metadata_json.listings[locale]) {
+                    // Add the image entry to the specific locale in listings
+                    if (
+                        metadata_json.listings[locale] &&
+                        metadata_json.listings[locale].baseListing &&
+                        Array.isArray(metadata_json.listings[locale].baseListing.images)
+                    ) {
+                        metadata_json.listings[locale].baseListing.images.push({
+                            fileStatus: "PendingUpload",
+                            fileName: fileName,
+                            ImageType: type
+                        });
+                    }
+                }
+            }
+            else if (type === "TrailerImage") {
+                // Trailer images are handled separately
+                continue;
+            }
+            else if (type === "Trailer") {
+                let imageListJson: { [loc: string]: { title: string; imageList: any[] } } = {};
+                for (const loc of Object.keys(metadata_json.listings)) {
+                    imageListJson[loc] = { title: "", imageList: [] };
+                }
+                metadata_json.trailers.push({ videoFileName: fileName, trailerAssets: imageListJson });
+            }
+            else {
+                core.warning(`Unknown media type "${type}" in file "${fileName}" check the prefix. Skipping.`);
+                continue;
+            }
+        }
+
+    // Add all trailer images to metadata
+    for (const file of mediaFiles) {
+        const fileName = file.filename || file.originalname;
+        const nameParts = fileName.split("_");
+        const type = nameParts[0];
+        const locale = nameParts.length > 1 ? nameParts[1] : null;
+        if (!fileName || !type || !locale) {
+            core.warning(`File name "${fileName}" is missing type or locale, skipping this file.`);
+            continue;
+        }
+        if(type === "TrailerImage" ) {
+            for (const trailer of metadata_json.trailers) {
+                const videoBaseName = trailer.videoFileName.split("_")[2]?.split(".")[0];
+                const fileBaseName = fileName.split("_")[2]?.split(".")[0];
+                if (videoBaseName === fileBaseName) {
+                    // For the matching locale in trailerAssets, add the TrailerImage to imageList
+                    if (locale === "all") {
+                        // Add to all locales
+                        for (const loc of Object.keys(trailer.trailerAssets)) {
+                            if (trailer.trailerAssets[loc] && Array.isArray(trailer.trailerAssets[loc].imageList)) {
+                                trailer.trailerAssets[loc].title = trailer.trailerAssets[loc].title || videoBaseName;
+                                trailer.trailerAssets[loc].imageList.push({
+                                    fileName: fileName,
+                                    description: null
+                                });
+                            }
+                        }
+                      }
+                    else if (trailer.trailerAssets[locale] && Array.isArray(trailer.trailerAssets[locale].imageList)) {
+                        trailer.trailerAssets[locale].title = trailer.trailerAssets[locale].title || videoBaseName;
+                        trailer.trailerAssets[locale].imageList.push({
+                            fileName: fileName,
+                            description: null
+                        });
+                    }
+                }
+            }
+        }
     }
-  }
-  return metadata_json;
+    return metadata_json;
 }
 
     

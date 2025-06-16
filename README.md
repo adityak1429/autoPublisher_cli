@@ -12,7 +12,7 @@
 
 ## Inputs
 
-| Name            | Description                                                                                                                                         | Required | Default   |
+| Name            | description                                                                                                                                         | Required | Default   |
 |-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------|
 | `command`       | The command to execute. Available commands: `getmetadata`, `json_init`, `publish`                                                                   | Yes      | publish   |
 | `product-id`    | Product Id                                                                                                                                          | Yes      |           |

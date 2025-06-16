@@ -114,7 +114,7 @@ async function configureAction() {
     return;
   }
 
-  msstore.configure();
+  await msstore.configure();
 
   core.info("Configuration completed successfully.");
 }
@@ -136,7 +136,13 @@ async function zipandUpload(uploadUrl: string, files: any) {
 
     // Add each file individually using getFilesArrayFromDirectory
     for (const file of files) {
-      archive.append(file.buffer, { name: file.originalname });
+      try{
+        archive.append(file.buffer, { name: file.originalname || file.filename });
+      }
+      catch (error) {
+        core.warning(`Skipping file ${file.originalname} or $ due to error: ${error}`);
+        continue; // Skip this file and continue with the next
+      }
     }
 
     archive.finalize();
@@ -200,36 +206,46 @@ async function updateMetadataAndUpload(): Promise<void> {
     metadata_json = await readJSONFile(jsonFilePath);// ideally exit to no check.
     core.info("Metadata JSON file read and filtered successfully.");
   }
+  let mediaFiles = getFilesArrayFromDirectory(photosPath);
+  let packageFiles = getFilesArrayFromDirectory(packagePath);
   filteredMetadata_json = msstore.filterFields(metadata_json);
-  filteredMetadata_json = await msstore.add_files_to_metadata(filteredMetadata_json, packagePath, photosPath);
-  await msstore.validate_json(filteredMetadata_json);
 
-  let files = getFilesArrayFromDirectory(photosPath);
-  let previewUrl = await sendFilesToServer(files,filteredMetadata_json);
-  core.info(`Files uploaded successfully. PDP URL: ${previewUrl}`);
-  let files_with_metadata = await getFilesFromServer();
+  // changes mediaFiles and filteredMetadata_json to be used in interactive mode
+  if(core.getInput("interactive") === "true") {
+    let previewUrl = await sendFilesToServer(mediaFiles,filteredMetadata_json);
+    core.info(`Files uploaded successfully. PDP URL: http://localhost:3000${previewUrl}`);
+    let files_with_metadata = await getFilesFromServer();
 
-  const filteredMetadata_json_buffer = files_with_metadata.find(
-    (file: express.Multer.File) => file.originalname === "metadata"
-  );
-  if (!filteredMetadata_json_buffer) {
-    core.setFailed("Metadata file not found in files_with_metadata.");
+    const filteredMetadata_json_buffer = files_with_metadata.find(
+      (file: any) => file.filename === "metadata.json"
+    );
+    if (!filteredMetadata_json_buffer) {
+      core.setFailed("Metadata file not found in files_with_metadata.");
+      return;
+    }
+    // Remove the file named 'metadata.json' from files_with_metadata
+    mediaFiles = files_with_metadata
+      .filter((file: express.Multer.File) => file.filename !== "metadata.json");
+    filteredMetadata_json = JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8"));
+  }
+
+  filteredMetadata_json = await msstore.add_files_to_metadata(productId,filteredMetadata_json, packageFiles, mediaFiles);
+  
+  console.log("Filtered metadata JSON:", JSON.stringify(filteredMetadata_json, null, 2));
+  try {
+    metadata_json = await msstore.updateMetadata(productId,filteredMetadata_json);
+  } catch (error: unknown) {
+    core.setFailed(`Failed to update metadata`);
+    core.setFailed(error as string);
     return;
   }
-  filteredMetadata_json = filteredMetadata_json_buffer.buffer.toString("utf-8");
-  // Remove the file named 'metadata.json' from files_with_metadata
-  files = files_with_metadata.filter(
-    (file: express.Multer.File) => file.originalname !== "metadata"
-  );
-
-  metadata_json = await msstore.updateMetadata(productId,filteredMetadata_json);
 
   // Fetch the upload URL for the package
   core.info("Fetching upload URL for the package...");
   const uploadUrl = metadata_json.fileUploadUrl;
 
-  // Concatenate files from packagePath to the files buffer
-  files = files.concat(getFilesArrayFromDirectory(packagePath));
+  // Concatenate mediaFiles from packagePath to the mediaFiles buffer
+  const files = mediaFiles.concat(packageFiles);
   await zipandUpload(uploadUrl, files);
 
   await msstore.commitSubmission(productId);
@@ -249,6 +265,7 @@ try {
     }
 
     else if (command==="json_init") {
+      await msstore.getCurrentSubmissionId(productId, true);
       const metadata_json = await msstore.getMetadata(productId);
       core.info(JSON.stringify(msstore.filterFields(metadata_json),null,2));
     }
@@ -275,6 +292,9 @@ try {
     }
 
     else if(command==="pdp") {
+      await msstore.configure();
+      await msstore.getCurrentSubmissionId(productId, false);
+      await msstore.deleteSubmission(productId);
       updateMetadataAndUpload();
     }
 
@@ -299,6 +319,7 @@ try {
       core.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/properties`);
 
       // take interative input then proceed
+      // non need above since pdp doesnt change
 
       await updateMetadataAndUpload();
 

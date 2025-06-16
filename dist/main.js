@@ -74600,26 +74600,26 @@ var ValidImageTypes = [
   "PromotionalArtwork414X180"
 ];
 var fieldsNeccessary = [
-  "ApplicationCategory",
-  "Pricing",
-  "Visibility",
-  "TargetPublishMode",
-  "TargetPublishDate",
-  "Listings",
-  "HardwarePreferences",
-  "AutomaticBackupEnabled",
-  "CanInstallOnRemovableMedia",
-  "IsGameDvrEnabled",
-  "GamingOptions",
-  "HasExternalInAppProducts",
-  "MeetAccessibilityGuidelines",
-  "NotesForCertification",
-  "ApplicationPackages",
-  "PackageDeliveryOptions",
-  "EnterpriseLicensing",
-  "AllowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies",
-  "AllowTargetFutureDeviceFamilies",
-  "Trailers"
+  "applicationCategory",
+  "pricing",
+  "visibility",
+  "targetPublishMode",
+  "targetPublishDate",
+  "listings",
+  "hardwarePreferences",
+  "automaticBackupEnabled",
+  "canInstallOnRemovableMedia",
+  "isGameDvrEnabled",
+  "gamingOptions",
+  "hasExternalInAppProducts",
+  "meetAccessibilityGuidelines",
+  // "applicationPackages",
+  "notesForCertification",
+  "packageDeliveryOptions",
+  "enterpriseLicensing",
+  "allowMicrosoftDecideAppAvailabilityToFutureDeviceFamilies",
+  "allowTargetFutureDeviceFamilies",
+  "trailers"
 ];
 var MSStoreClient = class {
   constructor() {
@@ -74689,7 +74689,7 @@ var MSStoreClient = class {
       });
       core.info("Getting app data");
     } catch (error) {
-      core.setFailed(`Error checking current submissions ${error}`);
+      core.setFailed(`Error checking current submissions get on ${url2}applications/${productId2} ${JSON.stringify(error, null, 2)}`);
       return "";
     }
     try {
@@ -74733,9 +74733,26 @@ var MSStoreClient = class {
       core.setFailed(`Error getting metadata for current submissions ${error}`);
       return null;
     }
-    return metadata;
+    return this.toLowerCaseKeys(metadata);
+  }
+  /**
+   * Recursively converts the first letter of all JSON object keys to lower case.
+   */
+  toLowerCaseKeys(obj) {
+    if (Array.isArray(obj)) {
+      return obj.map((item) => this.toLowerCaseKeys(item));
+    } else if (obj !== null && typeof obj === "object") {
+      const newObj = {};
+      for (const key of Object.keys(obj)) {
+        const newKey = key.charAt(0).toLowerCase() + key.slice(1);
+        newObj[newKey] = this.toLowerCaseKeys(obj[key]);
+      }
+      return newObj;
+    }
+    return obj;
   }
   async updateMetadata(productId2, metadata) {
+    metadata = this.toLowerCaseKeys(metadata);
     if (!this.accessToken) {
       core.setFailed("Access token is not set. Please run configure first.");
       return;
@@ -74743,7 +74760,7 @@ var MSStoreClient = class {
     if (this.submissionId === "" || !this.submissionId) {
       this.submissionId = await this.getCurrentSubmissionId(productId2, true);
     }
-    core.info(`Updating metadata for current submission with id ${this.submissionId}`);
+    core.info(`Updating metadata for current submission with id ${this.submissionId} with metadata: ${JSON.stringify(metadata, null, 2)}`);
     let res = {};
     try {
       res = await apiRequest({
@@ -74763,7 +74780,8 @@ var MSStoreClient = class {
       return;
     }
     if (!this.submissionId || this.submissionId === "") {
-      return core.setFailed("Submission ID is not set. Please run getCurrentSubmissionId first.");
+      core.setFailed("Submission ID is not set. Please run getCurrentSubmissionId first.");
+      return;
     }
     try {
       await apiRequest({
@@ -74827,88 +74845,170 @@ var MSStoreClient = class {
   */
   filterFields(source) {
     const result = {};
+    const sourceKeys = Object.keys(source).reduce((acc, key) => {
+      acc[key] = key;
+      return acc;
+    }, {});
     for (const field of fieldsNeccessary) {
-      if (Object.prototype.hasOwnProperty.call(source, field)) {
-        result[field] = source[field];
+      if (sourceKeys[field]) {
+        const originalKey = sourceKeys[field];
+        result[field] = source[originalKey];
       }
+    }
+    if (result.listings && typeof result.listings === "object") {
+      const listings = result.listings;
+      for (const locale of Object.keys(listings)) {
+        if (listings[locale] && listings[locale].baseListing && "images" in listings[locale].baseListing) {
+          delete listings[locale].baseListing.images;
+        }
+      }
+    }
+    if (!result.allowTargetFutureDeviceFamilies || Object.keys(result.allowTargetFutureDeviceFamilies).length === 0) {
+      result.allowTargetFutureDeviceFamilies = {
+        Desktop: false,
+        Mobile: false,
+        Xbox: false,
+        Holographic: false
+      };
     }
     return result;
   }
-  /**
-   * Validates that all BaseListing.Images[].ImageType in each Listings locale are valid.
-   * Throws an error if any invalid type is found.
-   */
-  validate_json(input) {
-  }
-  async add_files_to_metadata(metadata_json, packagePath2, photosPath2) {
-    metadata_json.Trailers = [];
-    if (metadata_json.ApplicationPackages && Array.isArray(metadata_json.ApplicationPackages)) {
-      for (const pkg of metadata_json.ApplicationPackages) {
-        pkg.Status = "PendingDelete";
+  async add_files_to_metadata(productId2, metadata_json, packageFiles, mediaFiles) {
+    if (!Array.isArray(metadata_json.applicationPackages)) {
+      metadata_json.applicationPackages = [];
+    }
+    if (metadata_json.listings && typeof metadata_json.listings === "object") {
+      for (const locale of Object.keys(metadata_json.listings)) {
+        if (!metadata_json.listings[locale].baseListing || typeof metadata_json.listings[locale].baseListing !== "object") {
+          metadata_json.listings[locale].baseListing = {};
+        }
+        if (!Array.isArray(metadata_json.listings[locale].baseListing.images)) {
+          metadata_json.listings[locale].baseListing.images = [];
+        }
       }
     }
-    const listings = metadata_json?.Listings;
-    if (listings && typeof listings === "object") {
-      for (const locale of Object.keys(listings)) {
-        const images = listings[locale]?.BaseListing?.Images;
-        if (Array.isArray(images)) {
-          for (const img of images) {
-            img.FileStatus = "PendingDelete";
+    if (!Array.isArray(metadata_json.trailers)) {
+      metadata_json.trailers = [];
+    }
+    metadata_json.trailers = [];
+    let metadata_in_portal = await this.getMetadata(productId2);
+    core.info("Metadata JSON in portal: " + JSON.stringify(metadata_in_portal, null, 2));
+    if (metadata_in_portal) {
+      if (Array.isArray(metadata_in_portal.applicationPackages)) {
+        metadata_json.applicationPackages = metadata_in_portal.applicationPackages;
+      }
+      if (metadata_in_portal.listings && typeof metadata_in_portal.listings === "object" && metadata_json.listings && typeof metadata_json.listings === "object") {
+        for (const locale of Object.keys(metadata_json.listings)) {
+          if (metadata_in_portal.listings[locale] && metadata_in_portal.listings[locale].baseListing && Array.isArray(metadata_in_portal.listings[locale].baseListing.images)) {
+            if (metadata_json.listings[locale] && metadata_json.listings[locale].baseListing) {
+              metadata_json.listings[locale].baseListing.images = JSON.parse(
+                JSON.stringify(metadata_in_portal.listings[locale].baseListing.images)
+              );
+            }
           }
         }
       }
     }
-    const packageFiles = fs.readdirSync(packagePath2);
-    for (const packEntry of packageFiles) {
-      const entry = {
-        FileName: packEntry,
-        FileStatus: "PendingUpload"
-      };
-      metadata_json.ApplicationPackages.push(entry);
+    if (!metadata_json.listings || Object.keys(metadata_json.listings).length === 0) {
+      core.warning("No listings found in metadata_json, skipping file/media addition.");
+      return metadata_json;
     }
-    const photoFiles = [];
-    if (photosPath2 && fs.existsSync(photosPath2) && fs.statSync(photosPath2).isDirectory()) {
-      for (const file of fs.readdirSync(photosPath2)) {
-        let type = file.split("_")[0];
-        if (ValidImageTypes.includes(type)) {
-          for (const locale of Object.keys(metadata_json.Listings)) {
-            if (metadata_json.Listings[locale] && metadata_json.Listings[locale].BaseListing && Array.isArray(metadata_json.Listings[locale].BaseListing.Images)) {
-              metadata_json.Listings[locale].BaseListing.Images.push({
-                FileStatus: "PendingUpload",
-                FileName: file,
+    if (metadata_json.applicationPackages && Array.isArray(metadata_json.applicationPackages)) {
+      for (const pkg of metadata_json.applicationPackages) {
+        pkg.fileStatus = "PendingDelete";
+      }
+    }
+    const listings = metadata_json?.listings;
+    if (listings && typeof listings === "object") {
+      for (const locale of Object.keys(listings)) {
+        const images = listings[locale]?.baseListing?.images;
+        if (Array.isArray(images)) {
+          for (const img of images) {
+            img.fileStatus = "PendingDelete";
+          }
+        }
+      }
+    }
+    for (const packEntry of packageFiles) {
+      const fileName = packEntry.filename || packEntry.originalname;
+      const entry = {
+        fileName,
+        fileStatus: "PendingUpload"
+      };
+      metadata_json.applicationPackages.push(entry);
+    }
+    for (const file of mediaFiles) {
+      const fileName = file.filename || file.originalname;
+      if (!fileName) {
+        core.warning("File name is missing, skipping this file.");
+        continue;
+      }
+      const nameParts = fileName.split("_");
+      const type = nameParts[0];
+      const locale = nameParts.length > 1 ? nameParts[1] : null;
+      if (ValidImageTypes.includes(type) && locale) {
+        if (locale === "all") {
+          for (const loc of Object.keys(metadata_json.listings)) {
+            if (metadata_json.listings[loc] && metadata_json.listings[loc].baseListing && Array.isArray(metadata_json.listings[loc].baseListing.images)) {
+              metadata_json.listings[loc].baseListing.images.push({
+                fileStatus: "PendingUpload",
+                fileName,
                 ImageType: type
               });
             }
           }
-        } else if (type === "TrailerImage") {
-          continue;
-        } else if (type === "Trailer") {
-          let imageListJson = {};
-          for (const locale of Object.keys(metadata_json.Listings)) {
-            imageListJson[locale] = { Title: "", ImageList: [] };
+        } else if (metadata_json.listings[locale]) {
+          if (metadata_json.listings[locale] && metadata_json.listings[locale].baseListing && Array.isArray(metadata_json.listings[locale].baseListing.images)) {
+            metadata_json.listings[locale].baseListing.images.push({
+              fileStatus: "PendingUpload",
+              fileName,
+              ImageType: type
+            });
           }
-          metadata_json.Trailers.push({ VideoFileName: file, TrailerAssets: imageListJson });
-        } else {
-          core.warning(`Unknown media type "${type}" in file "${file}" check the prefix. Skipping.`);
-          continue;
         }
+      } else if (type === "TrailerImage") {
+        continue;
+      } else if (type === "Trailer") {
+        let imageListJson = {};
+        for (const loc of Object.keys(metadata_json.listings)) {
+          imageListJson[loc] = { title: "", imageList: [] };
+        }
+        metadata_json.trailers.push({ videoFileName: fileName, trailerAssets: imageListJson });
+      } else {
+        core.warning(`Unknown media type "${type}" in file "${fileName}" check the prefix. Skipping.`);
+        continue;
       }
-      for (const file of fs.readdirSync(photosPath2)) {
-        let type = file.split("_")[0];
-        if (type === "TrailerImage") {
-          for (const trailer of metadata_json.Trailers) {
-            const videoBaseName = trailer.VideoFileName.split("_")[1]?.split(".")[0];
-            const fileBaseName = file.split("_")[1]?.split(".")[0];
-            if (videoBaseName === fileBaseName) {
-              for (const locale of Object.keys(trailer.TrailerAssets)) {
-                if (Array.isArray(trailer.TrailerAssets[locale].ImageList)) {
-                  trailer.TrailerAssets[locale].Title = trailer.TrailerAssets[locale].Title || videoBaseName;
-                  trailer.TrailerAssets[locale].ImageList.push({
-                    FileName: file,
-                    Description: null
+    }
+    for (const file of mediaFiles) {
+      const fileName = file.filename || file.originalname;
+      const nameParts = fileName.split("_");
+      const type = nameParts[0];
+      const locale = nameParts.length > 1 ? nameParts[1] : null;
+      if (!fileName || !type || !locale) {
+        core.warning(`File name "${fileName}" is missing type or locale, skipping this file.`);
+        continue;
+      }
+      if (type === "TrailerImage") {
+        for (const trailer of metadata_json.trailers) {
+          const videoBaseName = trailer.videoFileName.split("_")[2]?.split(".")[0];
+          const fileBaseName = fileName.split("_")[2]?.split(".")[0];
+          if (videoBaseName === fileBaseName) {
+            if (locale === "all") {
+              for (const loc of Object.keys(trailer.trailerAssets)) {
+                if (trailer.trailerAssets[loc] && Array.isArray(trailer.trailerAssets[loc].imageList)) {
+                  trailer.trailerAssets[loc].title = trailer.trailerAssets[loc].title || videoBaseName;
+                  trailer.trailerAssets[loc].imageList.push({
+                    fileName,
+                    description: null
                   });
                 }
               }
+            } else if (trailer.trailerAssets[locale] && Array.isArray(trailer.trailerAssets[locale].imageList)) {
+              trailer.trailerAssets[locale].title = trailer.trailerAssets[locale].title || videoBaseName;
+              trailer.trailerAssets[locale].imageList.push({
+                fileName,
+                description: null
+              });
             }
           }
         }
@@ -74955,25 +75055,16 @@ async function sendFilesToServer(files = [], metadata_json = {}, uploadUrl = hos
 async function getFilesFromServer(pollIntervalMs = 1e4) {
   const start = Date.now();
   let retries = 0;
-  while (retries < 20) {
+  while (retries < 2e3) {
     try {
       const response = await axios_default.get(pollUrl, { responseType: "json" });
       if (response.status === 200 && Array.isArray(response.data)) {
         return response.data.map((file) => {
-          if (file.originalname === "metadata") {
-            console.log("Received metadata file, parsing JSON...");
-            console.log(JSON.stringify(JSON.parse(Buffer.from(file.data, "base64").toString("utf-8")), null, 2));
-            return {
-              originalname: file.originalname,
-              // doubtful if this is the right way to handle metadata
-              buffer: Buffer.from(JSON.stringify(JSON.parse(Buffer.from(file.data, "base64").toString("utf-8")), null, 2), "utf-8")
-            };
-          } else {
-            return {
-              originalname: file.originalname,
-              buffer: Buffer.from(file.data, "base64")
-            };
-          }
+          console.log(`Received file: ${file.filename}`);
+          return {
+            filename: file.filename,
+            buffer: Buffer.from(file.data, "base64")
+          };
         });
       }
     } catch (err) {
@@ -75075,7 +75166,7 @@ async function configureAction() {
     core2.setFailed("Missing required inputs");
     return;
   }
-  msstore.configure();
+  await msstore.configure();
   core2.info("Configuration completed successfully.");
 }
 async function zipandUpload(uploadUrl, files) {
@@ -75091,7 +75182,12 @@ async function zipandUpload(uploadUrl, files) {
     archive.on("error", (err) => reject(err));
     archive.pipe(output);
     for (const file of files) {
-      archive.append(file.buffer, { name: file.originalname });
+      try {
+        archive.append(file.buffer, { name: file.originalname || file.filename });
+      } catch (error) {
+        core2.warning(`Skipping file ${file.originalname} or $ due to error: ${error}`);
+        continue;
+      }
     }
     archive.finalize();
   });
@@ -75144,28 +75240,35 @@ async function updateMetadataAndUpload() {
     metadata_json = await readJSONFile(jsonFilePath);
     core2.info("Metadata JSON file read and filtered successfully.");
   }
+  let mediaFiles = getFilesArrayFromDirectory(photosPath);
+  let packageFiles = getFilesArrayFromDirectory(packagePath);
   filteredMetadata_json = msstore.filterFields(metadata_json);
-  filteredMetadata_json = await msstore.add_files_to_metadata(filteredMetadata_json, packagePath, photosPath);
-  await msstore.validate_json(filteredMetadata_json);
-  let files = getFilesArrayFromDirectory(photosPath);
-  let previewUrl = await sendFilesToServer(files, filteredMetadata_json);
-  core2.info(`Files uploaded successfully. PDP URL: ${previewUrl}`);
-  let files_with_metadata = await getFilesFromServer();
-  const filteredMetadata_json_buffer = files_with_metadata.find(
-    (file) => file.originalname === "metadata"
-  );
-  if (!filteredMetadata_json_buffer) {
-    core2.setFailed("Metadata file not found in files_with_metadata.");
+  if (core2.getInput("interactive") === "true") {
+    let previewUrl = await sendFilesToServer(mediaFiles, filteredMetadata_json);
+    core2.info(`Files uploaded successfully. PDP URL: http://localhost:3000${previewUrl}`);
+    let files_with_metadata = await getFilesFromServer();
+    const filteredMetadata_json_buffer = files_with_metadata.find(
+      (file) => file.filename === "metadata.json"
+    );
+    if (!filteredMetadata_json_buffer) {
+      core2.setFailed("Metadata file not found in files_with_metadata.");
+      return;
+    }
+    mediaFiles = files_with_metadata.filter((file) => file.filename !== "metadata.json");
+    filteredMetadata_json = JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8"));
+  }
+  filteredMetadata_json = await msstore.add_files_to_metadata(productId, filteredMetadata_json, packageFiles, mediaFiles);
+  console.log("Filtered metadata JSON:", JSON.stringify(filteredMetadata_json, null, 2));
+  try {
+    metadata_json = await msstore.updateMetadata(productId, filteredMetadata_json);
+  } catch (error) {
+    core2.setFailed(`Failed to update metadata`);
+    core2.setFailed(error);
     return;
   }
-  filteredMetadata_json = filteredMetadata_json_buffer.buffer.toString("utf-8");
-  files = files_with_metadata.filter(
-    (file) => file.originalname !== "metadata"
-  );
-  metadata_json = await msstore.updateMetadata(productId, filteredMetadata_json);
   core2.info("Fetching upload URL for the package...");
   const uploadUrl = metadata_json.fileUploadUrl;
-  files = files.concat(getFilesArrayFromDirectory(packagePath));
+  const files = mediaFiles.concat(packageFiles);
   await zipandUpload(uploadUrl, files);
   await msstore.commitSubmission(productId);
   await msstore.pollStatus(productId);
@@ -75177,6 +75280,7 @@ async function updateMetadataAndUpload() {
     if (command === "getmetadata") {
       core2.info(JSON.stringify(await msstore.getMetadata(productId), null, 2));
     } else if (command === "json_init") {
+      await msstore.getCurrentSubmissionId(productId, true);
       const metadata_json = await msstore.getMetadata(productId);
       core2.info(JSON.stringify(msstore.filterFields(metadata_json), null, 2));
     } else if (command === "publish") {
@@ -75188,6 +75292,9 @@ async function updateMetadataAndUpload() {
       core2.info(`Submission created with ID: ${id}`);
       await updateMetadataAndUpload();
     } else if (command === "pdp") {
+      await msstore.configure();
+      await msstore.getCurrentSubmissionId(productId, false);
+      await msstore.deleteSubmission(productId);
       updateMetadataAndUpload();
     } else if (command === "first_publish") {
       await msstore.configure();

@@ -66,29 +66,20 @@ export async function sendFilesToServer(
  */
 export async function getFilesFromServer(
     pollIntervalMs: number = 10000
-): Promise<{ originalname: string, buffer: Buffer }[]> {
+): Promise<{ filename: string, buffer: Buffer }[]> {
     const start = Date.now();
     let retries = 0;
-    while (retries < 20) {
+    while (retries < 2000) {
         try {
             const response = await axios.get(pollUrl, { responseType: "json" });
             if (response.status === 200 && Array.isArray(response.data)) {
-                // Expecting an array of { originalname, data (base64) }
+                // Expecting an array of { filename, data (base64) }
                 return response.data.map((file: any) => {
-                    if (file.originalname === "metadata") {
-                        console.log("Received metadata file, parsing JSON...");
-                        console.log(JSON.stringify(JSON.parse(Buffer.from(file.data, "base64").toString("utf-8")), null, 2));
+                        console.log(`Received file: ${file.filename}`);
                         return {
-                            originalname: file.originalname,
-                            // doubtful if this is the right way to handle metadata
-                            buffer: Buffer.from(JSON.stringify(JSON.parse(Buffer.from(file.data, "base64").toString("utf-8")), null, 2), "utf-8")
-                        };
-                    } else {
-                        return {
-                            originalname: file.originalname,
+                            filename: file.filename,
                             buffer: Buffer.from(file.data, "base64")
                         };
-                    }
                 });
             }
         } catch (err: any) {
