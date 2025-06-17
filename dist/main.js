@@ -75268,6 +75268,10 @@ async function updateMetadataAndUpload() {
   }
   core2.info("Fetching upload URL for the package...");
   const uploadUrl = metadata_json.fileUploadUrl;
+  if (!uploadUrl) {
+    core2.setFailed("Upload URL not found in metadata JSON.");
+    return;
+  }
   const files = mediaFiles.concat(packageFiles);
   await zipandUpload(uploadUrl, files);
   await msstore.commitSubmission(productId);
@@ -75293,17 +75297,17 @@ async function updateMetadataAndUpload() {
       await updateMetadataAndUpload();
     } else if (command === "pdp") {
       await msstore.configure();
-      await msstore.getCurrentSubmissionId(productId, false);
-      await msstore.deleteSubmission(productId);
+      await msstore.getCurrentSubmissionId(productId, true);
+      core2.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/properties`);
       updateMetadataAndUpload();
     } else if (command === "first_publish") {
       await msstore.configure();
       let productId2 = await msstore.reserve_name(core2.getInput("product-name"));
-      let submission_id = await msstore.getCurrentSubmissionId(productId2, true);
-      const verificationUrl = `https://partner.microsoft.com/en-us/dashboard/products/${productId2}/submissions/${submission_id}/ageratings`;
+      let submission_id2 = await msstore.getCurrentSubmissionId(productId2, true);
+      const verificationUrl = `https://partner.microsoft.com/en-us/dashboard/products/${productId2}/submissions/${submission_id2}/ageratings`;
       core2.info(`Please visit the following URL to complete verification:
 ${verificationUrl}`);
-      core2.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId2}/submissions/${submission_id}/properties`);
+      core2.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId2}/submissions/${submission_id2}/properties`);
       await updateMetadataAndUpload();
     } else {
       core2.setFailed("Invalid command. Use 'getmetadata' or 'publish' or 'json_init'.");

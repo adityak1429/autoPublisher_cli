@@ -243,6 +243,10 @@ async function updateMetadataAndUpload(): Promise<void> {
   // Fetch the upload URL for the package
   core.info("Fetching upload URL for the package...");
   const uploadUrl = metadata_json.fileUploadUrl;
+  if(!uploadUrl) {
+    core.setFailed("Upload URL not found in metadata JSON.");
+    return;
+  }
 
   // Concatenate mediaFiles from packagePath to the mediaFiles buffer
   const files = mediaFiles.concat(packageFiles);
@@ -293,8 +297,8 @@ try {
 
     else if(command==="pdp") {
       await msstore.configure();
-      await msstore.getCurrentSubmissionId(productId, false);
-      await msstore.deleteSubmission(productId);
+      await msstore.getCurrentSubmissionId(productId, true);
+      core.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/properties`);
       updateMetadataAndUpload();
     }
 
