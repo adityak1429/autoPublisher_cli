@@ -6,6 +6,10 @@ inputs:
     description: 'The command to execute. Available command: getmetadata, getmetadataandfilter, publish'
     required: true
     default: 'publish'
+  interactive:
+    description: 'u want pdp? true:false;'
+    required: true
+    default: 'false'
   product-id:
     description: 'Product Id'
     required: true
