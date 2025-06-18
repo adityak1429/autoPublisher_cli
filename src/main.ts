@@ -192,7 +192,9 @@ function getFilesArrayFromDirectory(directoryPath: string): express.Multer.File[
     return files;
 }
 
-
+function copy_visible_data_json(metadata_json: any, visible_data_json: any): any {
+  return visible_data_json;
+}
 
 async function updateMetadataAndUpload(): Promise<void> {
   let metadata_json: any;
@@ -226,7 +228,7 @@ async function updateMetadataAndUpload(): Promise<void> {
     // Remove the file named 'metadata.json' from files_with_metadata
     mediaFiles = files_with_metadata
       .filter((file: express.Multer.File) => file.filename !== "metadata.json");
-    filteredMetadata_json = JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8"));
+    filteredMetadata_json = copy_visible_data_json(filteredMetadata_json,JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8")));
   }
 
   filteredMetadata_json = await msstore.add_files_to_metadata(productId,filteredMetadata_json, packageFiles, mediaFiles);

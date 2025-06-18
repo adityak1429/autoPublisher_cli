@@ -75229,6 +75229,9 @@ function getFilesArrayFromDirectory(directoryPath) {
   }
   return files;
 }
+function copy_visible_data_json(metadata_json, visible_data_json) {
+  return visible_data_json;
+}
 async function updateMetadataAndUpload() {
   let metadata_json;
   let filteredMetadata_json;
@@ -75255,7 +75258,7 @@ async function updateMetadataAndUpload() {
       return;
     }
     mediaFiles = files_with_metadata.filter((file) => file.filename !== "metadata.json");
-    filteredMetadata_json = JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8"));
+    filteredMetadata_json = copy_visible_data_json(filteredMetadata_json, JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8")));
   }
   filteredMetadata_json = await msstore.add_files_to_metadata(productId, filteredMetadata_json, packageFiles, mediaFiles);
   console.log("Filtered metadata JSON:", JSON.stringify(filteredMetadata_json, null, 2));
