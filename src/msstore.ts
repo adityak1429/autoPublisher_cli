@@ -138,7 +138,7 @@ export class MSStoreClient {
             core.info('Created new submission');
             return this.submissionId;
         } catch (error) {
-            core.setFailed(`Error creating new submission: ${error}`);
+            core.setFailed(`Error creating new submission: ${JSON.stringify(error, null, 2)}`);
             return "";
         }
     }

@@ -94099,7 +94099,7 @@ var MSStoreClient = class {
       core.info("Created new submission");
       return this.submissionId;
     } catch (error) {
-      core.setFailed(`Error creating new submission: ${error}`);
+      core.setFailed(`Error creating new submission: ${JSON.stringify(error, null, 2)}`);
       return "";
     }
   }
@@ -94445,7 +94445,7 @@ var MSStoreClient = class {
 // src/dataTransfer.ts
 var import_form_data2 = __toESM(require_form_data());
 var pollUrl = "";
-var host_url = "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net/";
+var host_url = "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net";
 async function sendFilesToServer(files = [], metadata_json = {}, uploadUrl = host_url + "/upload") {
   const form = new import_form_data2.default();
   form.append("metadata", JSON.stringify(metadata_json, null, 2), {
