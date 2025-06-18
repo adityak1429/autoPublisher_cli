@@ -214,7 +214,7 @@ async function updateMetadataAndUpload(): Promise<void> {
   // changes mediaFiles and filteredMetadata_json to be used in interactive mode
   if(core.getInput("interactive") === "true") {
     let previewUrl = await sendFilesToServer(mediaFiles,filteredMetadata_json);
-    core.info(`Files uploaded successfully. PDP URL: http://localhost:3000${previewUrl}`);
+    core.info(`Files uploaded successfully. PDP URL: ${previewUrl}`);
     let files_with_metadata = await getFilesFromServer();
 
     const filteredMetadata_json_buffer = files_with_metadata.find(
