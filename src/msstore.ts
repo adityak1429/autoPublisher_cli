@@ -279,7 +279,7 @@ export class MSStoreClient {
 
     }
 
-    async getStatus(productId:string, submissionId: string) {
+    async getStatus(productId:string, submissionId: string): Promise<string> {
         if (!this.accessToken) {
             core.setFailed('Access token is not set. Please run configure first.');
             return;
@@ -307,6 +307,9 @@ export class MSStoreClient {
         for (let i = 0; i < maxRetries; i++) {
             const status = await this.getStatus(productId,this.submissionId);
             core.info(`Current status: ${status}. Retrying in ${interval}ms...`);
+            if(JSON.parse(status).status !== "CommitStarted") {
+                break; // Exit loop if status is not "InProgress"
+            }
             await new Promise(resolve => setTimeout(resolve, interval));
         }
         core.setFailed('Polling timed out');

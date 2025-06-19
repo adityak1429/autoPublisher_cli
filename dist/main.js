@@ -94242,6 +94242,9 @@ var MSStoreClient = class {
     for (let i = 0; i < maxRetries; i++) {
       const status = await this.getStatus(productId2, this.submissionId);
       core.info(`Current status: ${status}. Retrying in ${interval}ms...`);
+      if (JSON.parse(status).status !== "CommitStarted") {
+        break;
+      }
       await new Promise((resolve) => setTimeout(resolve, interval));
     }
     core.setFailed("Polling timed out");
