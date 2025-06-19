@@ -94397,9 +94397,6 @@ var MSStoreClient = class {
         continue;
       } else if (type === "Trailer") {
         let imageListJson = {};
-        for (const loc of Object.keys(metadata_json.listings)) {
-          imageListJson[loc] = { title: "", imageList: [] };
-        }
         metadata_json.trailers.push({ videoFileName: fileName, trailerAssets: imageListJson });
       } else {
         core.warning(`Unknown media type "${type}" in file "${fileName}" check the prefix. Skipping.`);
@@ -94423,23 +94420,23 @@ var MSStoreClient = class {
           if (videoBaseName === fileBaseName) {
             if (locale.startsWith("all")) {
               const exclude_list = locale.slice(4).split(",") || [];
-              for (const loc of Object.keys(trailer.trailerAssets)) {
-                if (Array.isArray(trailer.trailerAssets[loc].imageList) && !exclude_list.includes(loc)) {
-                  trailer.trailerAssets[loc].title = trailer.trailerAssets[loc].title || videoBaseName;
+              for (const loc of Object.keys(metadata_json.listings)) {
+                if (!exclude_list.includes(loc)) {
+                  trailer.trailerAssets[loc] = { title: videoBaseName, imageList: [] };
                   trailer.trailerAssets[loc].imageList.push({
                     fileName,
                     description: null
                   });
                 }
               }
-            } else if (trailer.trailerAssets[locale] && Array.isArray(trailer.trailerAssets[locale].imageList)) {
-              trailer.trailerAssets[locale].title = trailer.trailerAssets[locale].title || videoBaseName;
-              trailer.trailerAssets[locale].imageList.push({
-                fileName,
-                description: null
-              });
             } else {
-              console.warn(`Trailer image for locale "${locale}" not found in trailerAssets the file is ${fileName}, skipping.`);
+              for (const loc of locale.split(",")) {
+                trailer.trailerAssets[loc] = { title: videoBaseName, imageList: [] };
+                trailer.trailerAssets[loc].imageList.push({
+                  fileName,
+                  description: null
+                });
+              }
             }
           }
         }

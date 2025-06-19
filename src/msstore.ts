@@ -530,9 +530,15 @@ export class MSStoreClient {
             }
             else if (type === "Trailer") {
                 let imageListJson: { [loc: string]: { title: string; imageList: any[] } } = {};
-                for (const loc of Object.keys(metadata_json.listings)) {
-                    imageListJson[loc] = { title: "", imageList: [] };
+
+                // Parse the locale from the file name
+                const langs = list_from_locale(locale);
+                for (const loc of langs) {
+                    if (!imageListJson[loc]) {
+                        imageListJson[loc] = { title: fileName, imageList: [] };
+                    }
                 }
+
                 metadata_json.trailers.push({ videoFileName: fileName, trailerAssets: imageListJson });
             }
             else {
@@ -540,7 +546,15 @@ export class MSStoreClient {
                 continue;
             }
         }
-
+    function list_from_locale(locale: string): string[] {
+        if (locale.startsWith("all")) {
+            // Exclude locales listed after 'all', e.g., all_en,fr
+            const excludeList = locale.length > 3 ? locale.slice(4).split(",") : [];
+            return Object.keys(metadata_json.listings).filter(loc => !excludeList.includes(loc));
+        } else {
+            return locale.split(",");
+        }
+    }
     // Add all trailer images to metadata
     for (const file of mediaFiles) {
         const fileName = file.filename || file.originalname;
@@ -553,42 +567,21 @@ export class MSStoreClient {
         }
         if(type === "TrailerImage" ) {
             console.log(`Adding trailer image ${fileName} to metadata_json`);
-
+            const langs_img = list_from_locale(locale);
             for (const trailer of metadata_json.trailers) {
-                const videoBaseName = trailer.videoFileName.split("_")[2]?.split(".")[0];
-                const fileBaseName = fileName.split("_")[2]?.split(".")[0];
-                if (videoBaseName === fileBaseName) {
-                    // For the matching locale in trailerAssets, add the TrailerImage to imageList
-                    if (locale.startsWith("all")) {
-                        // Add to all locales
-                        const exclude_list = locale.slice(4).split(",") || [];
-                        for (const loc of Object.keys(trailer.trailerAssets)) {
-                            if (Array.isArray(trailer.trailerAssets[loc].imageList) &&
-                                 !exclude_list.includes(loc)) {
-                                trailer.trailerAssets[loc].title = trailer.trailerAssets[loc].title || videoBaseName;
-                                trailer.trailerAssets[loc].imageList.push({
-                                    fileName: fileName,
-                                    description: null
-                                });
-                            }
-                        }
-                      }
-                    else if (trailer.trailerAssets[locale] && Array.isArray(trailer.trailerAssets[locale].imageList)) {
-                        trailer.trailerAssets[locale].title = trailer.trailerAssets[locale].title || videoBaseName;
-                        trailer.trailerAssets[locale].imageList.push({
-                            fileName: fileName,
-                            description: null
-                        });
-                    }
-                    else{
-                        console.warn(`Trailer image for locale "${locale}" not found in trailerAssets the file is ${fileName}, skipping.`);
-                    }
-                }
+                for (const loc of langs_img) {
+                if (trailer.trailerAssets && trailer.trailerAssets[loc]) {
+                    trailer.trailerAssets[loc].imageList.push({
+                        fileName: fileName,
+                        ImageType: type
+                    });
+                } 
+             }
             }
         }
     }
     return metadata_json;
 }
 
-    
+
 }
