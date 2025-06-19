@@ -573,7 +573,7 @@ export class MSStoreClient {
                 if (trailer.trailerAssets && trailer.trailerAssets[loc]) {
                     trailer.trailerAssets[loc].imageList.push({
                         fileName: fileName,
-                        ImageType: type
+                        description: null
                     });
                 } 
              }
