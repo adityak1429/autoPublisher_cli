@@ -552,6 +552,8 @@ export class MSStoreClient {
             continue;
         }
         if(type === "TrailerImage" ) {
+            console.log(`Adding trailer image ${fileName} to metadata_json`);
+
             for (const trailer of metadata_json.trailers) {
                 const videoBaseName = trailer.videoFileName.split("_")[2]?.split(".")[0];
                 const fileBaseName = fileName.split("_")[2]?.split(".")[0];
@@ -561,9 +563,8 @@ export class MSStoreClient {
                         // Add to all locales
                         const exclude_list = locale.slice(4).split(",") || [];
                         for (const loc of Object.keys(trailer.trailerAssets)) {
-                            if (trailer.trailerAssets[loc] &&
-                                 Array.isArray(trailer.trailerAssets[loc].imageList &&
-                                 !exclude_list.includes(loc))) {
+                            if (Array.isArray(trailer.trailerAssets[loc].imageList) &&
+                                 !exclude_list.includes(loc)) {
                                 trailer.trailerAssets[loc].title = trailer.trailerAssets[loc].title || videoBaseName;
                                 trailer.trailerAssets[loc].imageList.push({
                                     fileName: fileName,
@@ -578,6 +579,9 @@ export class MSStoreClient {
                             fileName: fileName,
                             description: null
                         });
+                    }
+                    else{
+                        console.warn(`Trailer image for locale "${locale}" not found in trailerAssets the file is ${fileName}, skipping.`);
                     }
                 }
             }

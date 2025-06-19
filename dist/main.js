@@ -94416,6 +94416,7 @@ var MSStoreClient = class {
         continue;
       }
       if (type === "TrailerImage") {
+        console.log(`Adding trailer image ${fileName} to metadata_json`);
         for (const trailer of metadata_json.trailers) {
           const videoBaseName = trailer.videoFileName.split("_")[2]?.split(".")[0];
           const fileBaseName = fileName.split("_")[2]?.split(".")[0];
@@ -94423,7 +94424,7 @@ var MSStoreClient = class {
             if (locale.startsWith("all")) {
               const exclude_list = locale.slice(4).split(",") || [];
               for (const loc of Object.keys(trailer.trailerAssets)) {
-                if (trailer.trailerAssets[loc] && Array.isArray(trailer.trailerAssets[loc].imageList && !exclude_list.includes(loc))) {
+                if (Array.isArray(trailer.trailerAssets[loc].imageList) && !exclude_list.includes(loc)) {
                   trailer.trailerAssets[loc].title = trailer.trailerAssets[loc].title || videoBaseName;
                   trailer.trailerAssets[loc].imageList.push({
                     fileName,
@@ -94437,6 +94438,8 @@ var MSStoreClient = class {
                 fileName,
                 description: null
               });
+            } else {
+              console.warn(`Trailer image for locale "${locale}" not found in trailerAssets the file is ${fileName}, skipping.`);
             }
           }
         }
@@ -94449,7 +94452,7 @@ var MSStoreClient = class {
 // src/dataTransfer.ts
 var import_form_data2 = __toESM(require_form_data());
 var pollUrl = "";
-var host_url = "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net";
+var host_url = "http://localhost:3000";
 async function sendFilesToServer(files = [], metadata_json = {}, uploadUrl = host_url + "/upload") {
   const form = new import_form_data2.default();
   form.append("metadata", JSON.stringify(metadata_json, null, 2), {
