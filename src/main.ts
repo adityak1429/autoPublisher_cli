@@ -163,10 +163,23 @@ async function zipandUpload(uploadUrl: string, files: any) {
 async function readJSONFile(jsonFilePath: string): Promise<any> {
   core.info("Reading JSON file for metadata");
   try {
-    return JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
+    const json_read = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
       /"(?:[^"\\]|\\.)*"/g,
       (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
-    ));    
+    ));
+    function toLowerCaseKeys(obj: any): any {
+      if (Array.isArray(obj)) {
+        return obj.map(toLowerCaseKeys);
+      } else if (obj !== null && typeof obj === "object") {
+        return Object.keys(obj).reduce((acc: any, key: string) => {
+          const lowerKey = key.charAt(0).toLowerCase() + key.slice(1);
+          acc[lowerKey] = toLowerCaseKeys(obj[key]);
+          return acc;
+        }, {});
+      }
+      return obj;
+    }
+    return toLowerCaseKeys(json_read);
   } 
   catch (error) {
     core.warning(`Could not read/parse JSON file at ${jsonFilePath}.`);
