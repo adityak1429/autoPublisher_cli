@@ -94373,9 +94373,10 @@ var MSStoreClient = class {
       const type = nameParts[0];
       const locale = nameParts.length > 1 ? nameParts[1] : null;
       if (ValidImageTypes.includes(type) && locale) {
-        if (locale === "all") {
+        if (locale.startsWith("all")) {
+          const exclude_list = locale.slice(4).split(",") || [];
           for (const loc of Object.keys(metadata_json.listings)) {
-            if (metadata_json.listings[loc] && metadata_json.listings[loc].baseListing && Array.isArray(metadata_json.listings[loc].baseListing.images)) {
+            if (metadata_json.listings[loc] && metadata_json.listings[loc].baseListing && !exclude_list.includes(loc) && Array.isArray(metadata_json.listings[loc].baseListing.images)) {
               metadata_json.listings[loc].baseListing.images.push({
                 fileStatus: "PendingUpload",
                 fileName,
@@ -94419,9 +94420,10 @@ var MSStoreClient = class {
           const videoBaseName = trailer.videoFileName.split("_")[2]?.split(".")[0];
           const fileBaseName = fileName.split("_")[2]?.split(".")[0];
           if (videoBaseName === fileBaseName) {
-            if (locale === "all") {
+            if (locale.startsWith("all")) {
+              const exclude_list = locale.slice(4).split(",") || [];
               for (const loc of Object.keys(trailer.trailerAssets)) {
-                if (trailer.trailerAssets[loc] && Array.isArray(trailer.trailerAssets[loc].imageList)) {
+                if (trailer.trailerAssets[loc] && Array.isArray(trailer.trailerAssets[loc].imageList && !exclude_list.includes(loc))) {
                   trailer.trailerAssets[loc].title = trailer.trailerAssets[loc].title || videoBaseName;
                   trailer.trailerAssets[loc].imageList.push({
                     fileName,
