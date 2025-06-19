@@ -27,7 +27,6 @@ export async function sendFilesToServer(
         contentType: "application/json",
     });
     console.log(`Sending metadata: upoaded`);
-    console.log("look im sending metadata: ", JSON.stringify(metadata_json, null, 2));
     // Attach files, but only if buffer is defined
     for (const file of files) {
         if (file && file.buffer && file.originalname) {

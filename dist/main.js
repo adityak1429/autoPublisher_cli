@@ -94455,7 +94455,6 @@ async function sendFilesToServer(files = [], metadata_json = {}, uploadUrl = hos
     contentType: "application/json"
   });
   console.log(`Sending metadata: upoaded`);
-  console.log("look im sending metadata: ", JSON.stringify(metadata_json, null, 2));
   for (const file of files) {
     if (file && file.buffer && file.originalname) {
       form.append("files", file.buffer, { filename: file.originalname });
@@ -94724,10 +94723,16 @@ async function updateMetadataAndUpload() {
       await msstore.configure();
       let productId2 = await msstore.reserve_name(core2.getInput("product-name"));
       let submission_id2 = await msstore.getCurrentSubmissionId(productId2, true);
+      for (let i = 0; i < 5; i++) {
+        core2.info("*******************************************************************");
+      }
       const verificationUrl = `https://partner.microsoft.com/en-us/dashboard/products/${productId2}/submissions/${submission_id2}/ageratings`;
       core2.info(`Please visit the following URL to complete verification:
 ${verificationUrl}`);
       core2.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId2}/submissions/${submission_id2}/properties`);
+      for (let i = 0; i < 5; i++) {
+        core2.info("*******************************************************************");
+      }
       await updateMetadataAndUpload();
     } else {
       core2.setFailed("Invalid command. Use 'getmetadata' or 'publish' or 'json_init'.");

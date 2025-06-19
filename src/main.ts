@@ -330,12 +330,17 @@ try {
 
       // true creates a new submission.
       let submission_id = await msstore.getCurrentSubmissionId(productId, true);
-
+      
+      for (let i = 0; i < 5; i++) {
+      core.info("*******************************************************************");
+      }
       // instruct user to visit the verification URL
       const verificationUrl = `https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/ageratings`; // Replace with your actual URL
       core.info(`Please visit the following URL to complete verification:\n${verificationUrl}`);
       core.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/properties`);
-
+      for (let i = 0; i < 5; i++) {
+      core.info("*******************************************************************");
+      }
       // take interative input then proceed
       // non need above since pdp doesnt change
 
