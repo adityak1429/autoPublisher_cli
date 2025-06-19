@@ -94397,10 +94397,24 @@ var MSStoreClient = class {
         continue;
       } else if (type === "Trailer") {
         let imageListJson = {};
+        const langs = list_from_locale(locale);
+        for (const loc of langs) {
+          if (!imageListJson[loc]) {
+            imageListJson[loc] = { title: fileName, imageList: [] };
+          }
+        }
         metadata_json.trailers.push({ videoFileName: fileName, trailerAssets: imageListJson });
       } else {
         core.warning(`Unknown media type "${type}" in file "${fileName}" check the prefix. Skipping.`);
         continue;
+      }
+    }
+    function list_from_locale(locale) {
+      if (locale.startsWith("all")) {
+        const excludeList = locale.length > 3 ? locale.slice(4).split(",") : [];
+        return Object.keys(metadata_json.listings).filter((loc) => !excludeList.includes(loc));
+      } else {
+        return locale.split(",");
       }
     }
     for (const file of mediaFiles) {
@@ -94414,29 +94428,14 @@ var MSStoreClient = class {
       }
       if (type === "TrailerImage") {
         console.log(`Adding trailer image ${fileName} to metadata_json`);
+        const langs_img = list_from_locale(locale);
         for (const trailer of metadata_json.trailers) {
-          const videoBaseName = trailer.videoFileName.split("_")[2]?.split(".")[0];
-          const fileBaseName = fileName.split("_")[2]?.split(".")[0];
-          if (videoBaseName === fileBaseName) {
-            if (locale.startsWith("all")) {
-              const exclude_list = locale.slice(4).split(",") || [];
-              for (const loc of Object.keys(metadata_json.listings)) {
-                if (!exclude_list.includes(loc)) {
-                  trailer.trailerAssets[loc] = { title: videoBaseName, imageList: [] };
-                  trailer.trailerAssets[loc].imageList.push({
-                    fileName,
-                    description: null
-                  });
-                }
-              }
-            } else {
-              for (const loc of locale.split(",")) {
-                trailer.trailerAssets[loc] = { title: videoBaseName, imageList: [] };
-                trailer.trailerAssets[loc].imageList.push({
-                  fileName,
-                  description: null
-                });
-              }
+          for (const loc of langs_img) {
+            if (trailer.trailerAssets && trailer.trailerAssets[loc]) {
+              trailer.trailerAssets[loc].imageList.push({
+                fileName,
+                description: null
+              });
             }
           }
         }
@@ -94449,7 +94448,7 @@ var MSStoreClient = class {
 // src/dataTransfer.ts
 var import_form_data2 = __toESM(require_form_data());
 var pollUrl = "";
-var host_url = "http://localhost:3000";
+var host_url = "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net";
 async function sendFilesToServer(files = [], metadata_json = {}, uploadUrl = host_url + "/upload") {
   const form = new import_form_data2.default();
   form.append("metadata", JSON.stringify(metadata_json, null, 2), {

@@ -7,8 +7,8 @@ import fs from "fs";
 import path from "path";
 
 let pollUrl: string = "";
-// const host_url =  "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net";
-const host_url =  "http://localhost:3000";
+const host_url =  "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net";
+// const host_url =  "http://localhost:3000";
 
 /**
  * Sends files and metadata.json to a remote server via POST and returns the poll URL.
