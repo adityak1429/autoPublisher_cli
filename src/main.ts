@@ -218,7 +218,7 @@ async function updateMetadataAndUpload(): Promise<void> {
   }
   else{
     metadata_json = await readJSONFile(jsonFilePath);// ideally exit to no check.
-    core.info("Metadata JSON file read and filtered successfully.");
+    core.info("Metadata JSON file read successfully.");
   }
   let mediaFiles = getFilesArrayFromDirectory(photosPath);
   let packageFiles = getFilesArrayFromDirectory(packagePath);
