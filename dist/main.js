@@ -94316,7 +94316,6 @@ var MSStoreClient = class {
     }
     metadata_json.trailers = [];
     let metadata_in_portal = await this.getMetadata(productId2);
-    core.info("Metadata JSON in portal: " + JSON.stringify(metadata_in_portal, null, 2));
     if (metadata_in_portal) {
       if (Array.isArray(metadata_in_portal.applicationPackages)) {
         metadata_json.applicationPackages = metadata_in_portal.applicationPackages;
@@ -94452,6 +94451,7 @@ async function sendFilesToServer(files = [], metadata_json = {}, uploadUrl = hos
     contentType: "application/json"
   });
   console.log(`Sending metadata: upoaded`);
+  console.log("look im sending metadata: ", JSON.stringify(metadata_json, null, 2));
   for (const file of files) {
     if (file && file.buffer && file.originalname) {
       form.append("files", file.buffer, { filename: file.originalname });
@@ -94606,10 +94606,24 @@ async function zipandUpload(uploadUrl, files) {
 async function readJSONFile(jsonFilePath) {
   core2.info("Reading JSON file for metadata");
   try {
-    return JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
+    let toLowerCaseKeys2 = function(obj) {
+      if (Array.isArray(obj)) {
+        return obj.map(toLowerCaseKeys2);
+      } else if (obj !== null && typeof obj === "object") {
+        return Object.keys(obj).reduce((acc, key) => {
+          const lowerKey = key.charAt(0).toLowerCase() + key.slice(1);
+          acc[lowerKey] = toLowerCaseKeys2(obj[key]);
+          return acc;
+        }, {});
+      }
+      return obj;
+    };
+    var toLowerCaseKeys = toLowerCaseKeys2;
+    const json_read = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
       /"(?:[^"\\]|\\.)*"/g,
       (str) => str.replace(/(\r\n|\r|\n)/g, "\\n")
     ));
+    return toLowerCaseKeys2(json_read);
   } catch (error) {
     core2.warning(`Could not read/parse JSON file at ${jsonFilePath}.`);
     core2.warning(error);
@@ -94642,7 +94656,7 @@ async function updateMetadataAndUpload() {
     core2.warning("JSON file path is not provided edit it in pdp.");
   } else {
     metadata_json = await readJSONFile(jsonFilePath);
-    core2.info("Metadata JSON file read and filtered successfully.");
+    core2.info("Metadata JSON file read successfully.");
   }
   let mediaFiles = getFilesArrayFromDirectory(photosPath);
   let packageFiles = getFilesArrayFromDirectory(packagePath);
@@ -94662,7 +94676,6 @@ async function updateMetadataAndUpload() {
     filteredMetadata_json = copy_visible_data_json(filteredMetadata_json, JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8")));
   }
   filteredMetadata_json = await msstore.add_files_to_metadata(productId, filteredMetadata_json, packageFiles, mediaFiles);
-  console.log("Filtered metadata JSON:", JSON.stringify(filteredMetadata_json, null, 2));
   try {
     metadata_json = await msstore.updateMetadata(productId, filteredMetadata_json);
   } catch (error) {
