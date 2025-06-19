@@ -405,7 +405,6 @@ export class MSStoreClient {
         metadata_json.trailers = []; // Reinitialize trailers 
 
         let metadata_in_portal = await this.getMetadata(productId);
-        core.info("Metadata JSON in portal: " + JSON.stringify(metadata_in_portal, null, 2));
         if (metadata_in_portal) {
             // Copy applicationPackages from portal to metadata_json
             if (Array.isArray(metadata_in_portal.applicationPackages)) {
