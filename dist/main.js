@@ -94243,7 +94243,7 @@ var MSStoreClient = class {
       const status = await this.getStatus(productId2, this.submissionId);
       core.info(`Current status: ${status}. Retrying in ${interval}ms...`);
       if (JSON.parse(status).status !== "CommitStarted") {
-        break;
+        return;
       }
       await new Promise((resolve) => setTimeout(resolve, interval));
     }
@@ -94473,7 +94473,6 @@ async function sendFilesToServer(files = [], metadata_json = {}, uploadUrl = hos
   console.log(`Response status: ${response.status}`);
   if (response.data && response.data.pollUrl && response.data.previewUrl) {
     pollUrl = host_url + response.data.pollUrl;
-    console.log(`Files uploaded successfully. Poll URL: ${pollUrl}`);
     return host_url + response.data.previewUrl;
   } else {
     console.log("Unexpected response from server:", response.data);

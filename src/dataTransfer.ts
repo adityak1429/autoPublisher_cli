@@ -50,7 +50,6 @@ export async function sendFilesToServer(
     // Expect the server to respond with a URL to poll for the files
     if (response.data && response.data.pollUrl && response.data.previewUrl) {
         pollUrl = host_url+response.data.pollUrl;
-        console.log(`Files uploaded successfully. Poll URL: ${pollUrl}`);
         return host_url+response.data.previewUrl;
     } else {
         console.log("Unexpected response from server:", response.data);
