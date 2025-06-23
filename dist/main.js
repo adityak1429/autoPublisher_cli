@@ -94365,13 +94365,20 @@ var MSStoreClient = class {
     return JSON.stringify(status, null, 2);
   }
   async pollStatus(productId2, interval = 5e3, maxRetries = 60) {
+    let prev_status = "";
     for (let i = 0; i < maxRetries; i++) {
       const status = await this.getStatus(productId2, this.submissionId);
-      core.info(`Current status: ${status}. Retrying in ${interval}ms...`);
-      if (JSON.parse(status).status !== "CommitStarted") {
-        return;
+      if (status === prev_status) {
+        core.info(`Status has not changed, waiting for ${interval}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, interval));
+      } else {
+        core.info(`Current status: ${status}. Retrying in ${interval}ms...`);
+        prev_status = status;
+        if (JSON.parse(status).status !== "CommitStarted") {
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, interval));
       }
-      await new Promise((resolve) => setTimeout(resolve, interval));
     }
     core.setFailed("Polling timed out");
   }

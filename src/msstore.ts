@@ -428,16 +428,26 @@ export class MSStoreClient {
     }
 
     async pollStatus(productId: string, interval: number = 5000, maxRetries: number = 60) {
+        let prev_status = "";
         for (let i = 0; i < maxRetries; i++) {
             const status = await this.getStatus(productId,this.submissionId);
-            core.info(`Current status: ${status}. Retrying in ${interval}ms...`);
-            if(JSON.parse(status).status !== "CommitStarted") {
-                return; // Exit loop if status is not "InProgress"
+            if(status === prev_status) {
+                core.info(`Status has not changed, waiting for ${interval}ms...`);
+                await new Promise(resolve => setTimeout(resolve, interval));
             }
-            await new Promise(resolve => setTimeout(resolve, interval));
+            else{
+                core.info(`Current status: ${status}. Retrying in ${interval}ms...`);
+                prev_status = status;
+                if(JSON.parse(status).status !== "CommitStarted") {
+                    return; // Exit loop if status is not "InProgress"
+                }
+                await new Promise(resolve => setTimeout(resolve, interval));
+            }
         }
         core.setFailed('Polling timed out');
     }
+
+    
 
     async commitSubmission(productId: string) {
         if (!this.accessToken) {
@@ -706,6 +716,5 @@ export class MSStoreClient {
     }
     return metadata_json;
 }
-
 
 }
