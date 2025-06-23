@@ -94574,7 +94574,7 @@ var MSStoreClient = class {
 // src/dataTransfer.ts
 var import_form_data2 = __toESM(require_form_data());
 var pollUrl = "";
-var host_url = "http://localhost:3000";
+var host_url = "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net";
 async function sendFilesToServer(files = [], metadata_json = {}, uploadUrl = host_url + "/upload") {
   const form = new import_form_data2.default();
   form.append("metadata", JSON.stringify(metadata_json, null, 2), {
