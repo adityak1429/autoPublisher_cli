@@ -2,36 +2,36 @@ import {MSStoreClient} from './msstore'; // Ensure msstore-cli is installed and 
 const archiver = require("archiver");
 const path = require("path");
 const fs = require("fs");
-import { getFilesFromServer, sendFilesToServer } from "./dataTransfer"; // Assuming getFiles is defined in getData.ts
+import { getFilesFromServer, sendFilesToServer, wait_for_approval } from "./dataTransfer"; // Assuming getFiles is defined in getData.ts
 import express from "express";
 
 import { BlockBlobClient } from "@azure/storage-blob";
 
-import * as core from "@actions/core";
-// import * as dotenv from "dotenv";
-// dotenv.config();
-// const core = {
-//   getInput(name: string): string {
-//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-//     if (!value) {
-//       this.setFailed(`Missing environment variable for ${name}`);
-//       process.exit(1);
-//     }
-//     return value;
-//   },
-//   setFailed(message: string): void {
-//     console.error(`❌ ${message}`);
-//   },
-//   info(message: string): void {
-//     console.info(`ℹ️ ${message}`);
-//   },
-//   warning(message: string): void {
-//     console.warn(`⚠️ ${message}`);
-//   },
-//   setDebug(message: string): void {
-//     console.debug(`🐞 ${message}`);
-//   }
-// }
+// import * as core from "@actions/core";
+import * as dotenv from "dotenv";
+dotenv.config();
+const core = {
+  getInput(name: string): string {
+    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+    if (!value) {
+      this.setFailed(`Missing environment variable for ${name}`);
+      process.exit(1);
+    }
+    return value;
+  },
+  setFailed(message: string): void {
+    console.error(`❌ ${message}`);
+  },
+  info(message: string): void {
+    console.info(`ℹ️ ${message}`);
+  },
+  warning(message: string): void {
+    console.warn(`⚠️ ${message}`);
+  },
+  setDebug(message: string): void {
+    console.debug(`🐞 ${message}`);
+  }
+}
 
 let productId: string = "";
 let sellerId: string  = "";
@@ -208,7 +208,7 @@ function copy_visible_data_json(metadata_json: any, visible_data_json: any): any
   return visible_data_json;
 }
 
-async function updateMetadataAndUpload(): Promise<void> {
+async function updateMetadataAndUpload(first_time=false): Promise<void> {
   let metadata_json: any;
   let filteredMetadata_json : any;
   const jsonFilePath = core.getInput("json-file-path") || "";
@@ -225,9 +225,14 @@ async function updateMetadataAndUpload(): Promise<void> {
   filteredMetadata_json = msstore.filterFields(metadata_json);
 
   // changes mediaFiles and filteredMetadata_json to be used in interactive mode
-  if(core.getInput("interactive") === "true") {
+  if(core.getInput("interactive") === "true" || first_time) {
     let previewUrl = await sendFilesToServer(mediaFiles,filteredMetadata_json);
-    core.info(`Files uploaded successfully. PDP URL: ${previewUrl}`);
+    if(first_time) {
+      core.info(`visit this url for further processing ${previewUrl}/submission?submission_id=${await msstore.getCurrentSubmissionId(productId,true)}&&product_id=${productId}`);
+    }
+    else{
+      core.info(`Files uploaded successfully. PDP URL: ${previewUrl}/render`);
+    }
     let files_with_metadata = await getFilesFromServer();
 
     const filteredMetadata_json_buffer = files_with_metadata.find(
@@ -312,8 +317,7 @@ try {
     else if(command==="pdp") {
       await msstore.configure();
       await msstore.getCurrentSubmissionId(productId, true);
-      core.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/properties`);
-      updateMetadataAndUpload();
+      updateMetadataAndUpload(true);
     }
 
     // else if(command==="reserve_name") {
@@ -331,20 +335,13 @@ try {
       // true creates a new submission.
       let submission_id = await msstore.getCurrentSubmissionId(productId, true);
       
-      for (let i = 0; i < 5; i++) {
-      core.info("*******************************************************************");
-      }
       // instruct user to visit the verification URL
-      const verificationUrl = `https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/ageratings`; // Replace with your actual URL
-      core.info(`Please visit the following URL to complete verification:\n${verificationUrl}`);
-      core.info(`also visit https://partner.microsoft.com/en-us/dashboard/products/${productId}/submissions/${submission_id}/properties`);
-      for (let i = 0; i < 5; i++) {
-      core.info("*******************************************************************");
-      }
+
       // take interative input then proceed
       // non need above since pdp doesnt change
 
-      await updateMetadataAndUpload();
+
+      await updateMetadataAndUpload(true);
 
     }
     else{

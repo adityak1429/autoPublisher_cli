@@ -9,6 +9,11 @@
 > Do not modify `applicationpackages`, `listings > ... > images` in the JSON file. These are handled automatically.
 
 ---
+## Demo
+
+![Demo Video](first_publish.mp4)
+
+
 
 ## Inputs
 

@@ -1,31 +1,31 @@
 import { apiRequest, setHeaders } from './apiHelper';
 
-import * as core from "@actions/core";
+// import * as core from "@actions/core";
 
-// import * as dotenv from "dotenv";
-// dotenv.config();
-// const core = {
-//   getInput(name: string): string {
-//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-//     if (!value) {
-//       this.setFailed(`Missing environment variable for ${name}`);
-//       process.exit(1);
-//     }
-//     return value;
-//   },
-//   setFailed(message: string): void {
-//     console.error(`❌ ${message}`);
-//   },
-//   info(message: string): void {
-//     console.info(`ℹ️ ${message}`);
-//   },
-//   warning(message: string): void {
-//     console.warn(`⚠️ ${message}`);
-//   },
-//   setDebug(message: string): void {
-//     console.debug(`🐞 ${message}`);
-//   }
-// };
+import * as dotenv from "dotenv";
+dotenv.config();
+const core = {
+  getInput(name: string): string {
+    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+    if (!value) {
+      this.setFailed(`Missing environment variable for ${name}`);
+      process.exit(1);
+    }
+    return value;
+  },
+  setFailed(message: string): void {
+    console.error(`❌ ${message}`);
+  },
+  info(message: string): void {
+    console.info(`ℹ️ ${message}`);
+  },
+  warning(message: string): void {
+    console.warn(`⚠️ ${message}`);
+  },
+  setDebug(message: string): void {
+    console.debug(`🐞 ${message}`);
+  }
+};
 
 const url = 'https://manage.devcenter.microsoft.com/v1.0/my/';
 
@@ -222,22 +222,146 @@ export class MSStoreClient {
       }
       return obj;
     }
+    
+    /**
+     * Validates the structure and content of a metadata JSON object according to the app_resource format.
+     * Throws an error with a descriptive message if validation fails.
+     * Returns true if validation passes.
+     */
+    async validate_json(json: any) {
+        // 1. Top-level object check
+        if (typeof json !== "object" || json === null) {
+            throw new Error("Input must be a non-null object.");
+        }
+
+        // 2. applicationCategory: required, string, must be valid
+        const validCategories = [
+            "BooksAndReference", "Business", "DeveloperTools", "Education", "Entertainment",
+            "FamilyAndKids", "FoodAndDining", "GovernmentAndPolitics", "HealthAndFitness",
+            "Lifestyle", "Medical", "Music", "NavigationAndMaps", "NewsAndWeather",
+            "PersonalFinance", "PhotoAndVideo", "Productivity", "Security", "Shopping",
+            "Social", "Sports", "Travel", "Utilities", "Weather", "Other"
+        ];
+        if (typeof json.applicationCategory !== "string" || !json.applicationCategory) {
+            throw new Error("Missing or invalid applicationCategory (must be a non-empty string).");
+        }
+        if (!validCategories.includes(json.applicationCategory)) {
+            throw new Error(`Invalid applicationCategory: ${json.applicationCategory}`);
+        }
+
+        // 3. applicationPackages: required, non-empty array, each with fileName and fileStatus
+        if (!Array.isArray(json.applicationPackages) || json.applicationPackages.length === 0) {
+            throw new Error("applicationPackages must be a non-empty array.");
+        }
+        for (const [i, pkg] of json.applicationPackages.entries()) {
+            if (typeof pkg !== "object" || pkg === null) {
+                throw new Error(`applicationPackages[${i}] must be an object.`);
+            }
+            if (typeof pkg.fileName !== "string" || !pkg.fileName) {
+                throw new Error(`applicationPackages[${i}].fileName must be a non-empty string.`);
+            }
+            if (typeof pkg.fileStatus !== "string" || !pkg.fileStatus) {
+                throw new Error(`applicationPackages[${i}].fileStatus must be a non-empty string.`);
+            }
+        }
+
+        // 4. listings: required, object, at least one locale
+        if (typeof json.listings !== "object" || json.listings === null) {
+            throw new Error("listings must be a non-null object.");
+        }
+        const locales = Object.keys(json.listings);
+        if (locales.length === 0) {
+            throw new Error("listings must have at least one locale.");
+        }
+        for (const locale of locales) {
+            const listing = json.listings[locale];
+            if (typeof listing !== "object" || listing === null) {
+                throw new Error(`listings.${locale} must be an object.`);
+            }
+            // baseListing required
+            if (!listing.baseListing || typeof listing.baseListing !== "object") {
+                throw new Error(`listings.${locale}.baseListing is required and must be an object.`);
+            }
+            // baseListing.images: array of images
+            if (!Array.isArray(listing.baseListing.images)) {
+                throw new Error(`listings.${locale}.baseListing.images must be an array.`);
+            }
+            for (const [j, img] of listing.baseListing.images.entries()) {
+                if (typeof img !== "object" || img === null) {
+                    throw new Error(`listings.${locale}.baseListing.images[${j}] must be an object.`);
+                }
+                if (typeof img.fileName !== "string" || !img.fileName) {
+                    throw new Error(`listings.${locale}.baseListing.images[${j}].fileName must be a non-empty string.`);
+                }
+                if (typeof img.fileStatus !== "string" || !img.fileStatus) {
+                    throw new Error(`listings.${locale}.baseListing.images[${j}].fileStatus must be a non-empty string.`);
+                }
+                if (typeof img.imageType !== "string" || !img.imageType) {
+                    throw new Error(`listings.${locale}.baseListing.images[${j}].imageType must be a non-empty string.`);
+                }
+            }
+        }
+
+        // 5. trailers: required, array, each with videoFileName and trailerAssets
+        if (!Array.isArray(json.trailers)) {
+            throw new Error("trailers must be an array.");
+        }
+        for (const [i, trailer] of json.trailers.entries()) {
+            if (typeof trailer !== "object" || trailer === null) {
+                throw new Error(`trailers[${i}] must be an object.`);
+            }
+            if (typeof trailer.videoFileName !== "string" || !trailer.videoFileName) {
+                throw new Error(`trailers[${i}].videoFileName must be a non-empty string.`);
+            }
+            if (typeof trailer.trailerAssets !== "object" || trailer.trailerAssets === null) {
+                throw new Error(`trailers[${i}].trailerAssets must be an object.`);
+            }
+            // Each locale in trailerAssets
+            for (const locale of Object.keys(trailer.trailerAssets)) {
+                const asset = trailer.trailerAssets[locale];
+                if (typeof asset !== "object" || asset === null) {
+                    throw new Error(`trailers[${i}].trailerAssets.${locale} must be an object.`);
+                }
+                if (typeof asset.title !== "string") {
+                    throw new Error(`trailers[${i}].trailerAssets.${locale}.title must be a string.`);
+                }
+                if (!Array.isArray(asset.imageList)) {
+                    throw new Error(`trailers[${i}].trailerAssets.${locale}.imageList must be an array.`);
+                }
+                for (const [k, img] of asset.imageList.entries()) {
+                    if (typeof img !== "object" || img === null) {
+                        throw new Error(`trailers[${i}].trailerAssets.${locale}.imageList[${k}] must be an object.`);
+                    }
+                    if (typeof img.fileName !== "string" || !img.fileName) {
+                        throw new Error(`trailers[${i}].trailerAssets.${locale}.imageList[${k}].fileName must be a non-empty string.`);
+                    }
+                }
+            }
+        }
+
+        // 6. Optionally, check for other required top-level fields as per your schema
+        // e.g. pricing, visibility, etc.
+
+        // If all checks pass
+        return true;
+    }
+
 
     async updateMetadata(productId: string, metadata: any) {
-        metadata = this.toLowerCaseKeys(metadata);
-
-        // validate_json(metadata, fieldsNeccessary);
-
+        
         if (!this.accessToken) {
             core.setFailed('Access token is not set. Please run configure first.');
             return;
         }
-
+        
         if(this.submissionId === "" || !this.submissionId) {
             // If submissionId is not set, we need to create or get the current submission 
             this.submissionId = await this.getCurrentSubmissionId(productId,true);
         }
+        
+        metadata = this.toLowerCaseKeys(metadata);
 
+        await this.validate_json(metadata);
         //submit metadata to API
         core.info(`Updating metadata for current submission with id ${this.submissionId} with metadata: ${JSON.stringify(metadata, null, 2)}`);
         let res: any = {};
