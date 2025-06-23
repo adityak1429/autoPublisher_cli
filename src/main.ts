@@ -7,31 +7,34 @@ import express from "express";
 
 import { BlockBlobClient } from "@azure/storage-blob";
 
-import * as core from "@actions/core";
-// import * as dotenv from "dotenv";
-// dotenv.config();
-// const core = {
-//   getInput(name: string): string {
-//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-//     if (!value) {
-//       this.setFailed(`Missing environment variable for ${name}`);
-//       process.exit(1);
-//     }
-//     return value;
-//   },
-//   setFailed(message: string): void {
-//     console.error(`❌ ${message}`);
-//   },
-//   info(message: string): void {
-//     console.info(`ℹ️ ${message}`);
-//   },
-//   warning(message: string): void {
-//     console.warn(`⚠️ ${message}`);
-//   },
-//   setDebug(message: string): void {
-//     console.debug(`🐞 ${message}`);
-//   }
-// }
+const DEBUG = process.env.DEBUG === "true";
+
+// import * as core from "@actions/core";
+
+import * as dotenv from "dotenv";
+dotenv.config();
+const core = {
+  getInput(name: string): string {
+    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+    if (!value) {
+      this.setFailed(`Missing environment variable for ${name}`);
+      process.exit(1);
+    }
+    return value;
+  },
+  setFailed(message: string): void {
+    console.error(`❌ ${message}`);
+  },
+  info(message: string): void {
+    console.info(`ℹ️ ${message}`);
+  },
+  warning(message: string): void {
+    console.warn(`⚠️ ${message}`);
+  },
+  setDebug(message: string): void {
+    console.debug(`🐞 ${message}`);
+  }
+}
 
 let productId: string = "";
 let sellerId: string  = "";
