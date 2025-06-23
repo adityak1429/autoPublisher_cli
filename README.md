@@ -11,7 +11,7 @@
 ---
 ## Demo
 
-![Demo Video](first_publish.mp4)
+![Demo Video](first_publish.gif)
 
 
 
