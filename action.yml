@@ -34,6 +34,10 @@ inputs:
   json-file-path:
     description: 'Path to the JSON file containing app metadata'
     required: false
+  download:
+    description: 'set this flag to download metadata and media files which have been changed/added in pdp'
+    required: false
+    default: 'false'
 runs:
   using: 'node12'
   main: 'dist/main.js'

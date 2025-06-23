@@ -12,6 +12,8 @@ const DEBUG = process.env.DEBUG === "true";
 // import * as core from "@actions/core";
 
 import * as dotenv from "dotenv";
+const artifact = require('@actions/artifact');
+const tmp = require('os').tmpdir();
 dotenv.config();
 const core = {
   getInput(name: string): string {
@@ -249,6 +251,36 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
     mediaFiles = files_with_metadata
       .filter((file: express.Multer.File) => file.filename !== "metadata.json");
     filteredMetadata_json = copy_visible_data_json(filteredMetadata_json,JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8")));
+  
+    if(core.getInput("download") === "true") {
+      const artifactClient = artifact.create();
+      const artifactFiles: string[] = [];
+
+      const artifactDir = path.join(tmp, `media_artifact_${Date.now()}`);
+      fs.mkdirSync(artifactDir, { recursive: true });
+
+      // Write media files to artifact directory
+      for (const file of mediaFiles) {
+        const filePath = path.join(artifactDir, file.originalname || file.filename);
+        fs.writeFileSync(filePath, file.buffer);
+        artifactFiles.push(filePath);
+      }
+
+      // Write filteredMetadata_json to artifact directory
+      const metadataPath = path.join(artifactDir, 'filteredMetadata.json');
+      fs.writeFileSync(metadataPath, JSON.stringify(filteredMetadata_json, null, 2));
+      artifactFiles.push(metadataPath);
+
+      // Upload artifact
+      await artifactClient.uploadArtifact(
+        'mediaFiles_and_metadata',
+        artifactFiles,
+        artifactDir,
+        { continueOnError: false }
+      );
+      core.info(`Uploaded artifact: mediaFiles_and_metadata`);
+    }
+  
   }
 
   filteredMetadata_json = await msstore.add_files_to_metadata(productId,filteredMetadata_json, packageFiles, mediaFiles);
