@@ -15,7 +15,7 @@
 > In this demonstration, a MSIX package is already associated with the product name, the metadata has been initialized (by running the action with `json_init`), and several sample media files are prepared.
 
 <p align="center">
-    <img src="first_publish.gif" alt="Demo Video" width="800"/>
+    <img src="first_publish.gif" alt="Demo Video" width="500"/>
 </p>
 
 ## Inputs
