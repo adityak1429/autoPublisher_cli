@@ -9,7 +9,7 @@ import { BlockBlobClient } from "@azure/storage-blob";
 
 const DEBUG = process.env.DEBUG === "true";
 
-const artifactClient = require('@actions/artifact');
+import artifact, {UploadArtifactOptions} from '@actions/artifact'
 const tmp = require('os').tmpdir();
 import * as core from "@actions/core";
 // import * as dotenv from "dotenv";
@@ -272,11 +272,10 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
       artifactFiles.push(metadataPath);
 
       // Upload artifact
-      await artifactClient.uploadArtifact(
+      await artifact.uploadArtifact(
         'mediaFiles_and_metadata',
         artifactFiles,
-        artifactDir,
-        { continueOnError: false }
+        artifactDir
       );
       core.info(`Uploaded artifact: mediaFiles_and_metadata`);
     }
