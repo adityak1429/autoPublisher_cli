@@ -256,7 +256,7 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
     filteredMetadata_json = copy_visible_data_json(filteredMetadata_json,JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8")));
   
     if(core.getInput("download") === "true") {
-      const artifactClient = artifact.create();
+      const artifactClient = artifact.createArtifactClient();
       const artifactFiles: string[] = [];
 
       const artifactDir = path.join(tmp, `media_artifact_${Date.now()}`);
