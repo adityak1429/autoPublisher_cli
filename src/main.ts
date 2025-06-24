@@ -210,6 +210,9 @@ function getFilesArrayFromDirectory(directoryPath: string): express.Multer.File[
 }
 
 function copy_visible_data_json(metadata_json: any, visible_data_json: any): any {
+  
+  
+  
   return visible_data_json;
 }
 

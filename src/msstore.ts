@@ -419,7 +419,7 @@ export class MSStoreClient {
                 url: `${url}applications/${productId}/submissions/${submissionId}/status`,
                 method: 'GET',
             });
-            core.info('Got submission status successfully');
+            // core.info('Got submission status successfully');
             
         } catch (error) {
             core.setFailed(`Error getting submission status ${JSON.stringify(error, null, 2)}`);
