@@ -9,8 +9,7 @@ import { BlockBlobClient } from "@azure/storage-blob";
 
 const DEBUG = process.env.DEBUG === "true";
 
-
-const artifact = require('@actions/artifact');
+const artifactClient = require('@actions/artifact');
 const tmp = require('os').tmpdir();
 import * as core from "@actions/core";
 // import * as dotenv from "dotenv";
@@ -37,7 +36,6 @@ import * as core from "@actions/core";
 //     console.debug(`🐞 ${message}`);
 //   }
 // }
-
 let productId: string = "";
 let sellerId: string  = "";
 let tenantId: string  = "";
@@ -256,7 +254,6 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
     filteredMetadata_json = copy_visible_data_json(filteredMetadata_json,JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8")));
   
     if(core.getInput("download") === "true") {
-      const artifactClient = artifact.createArtifactClient();
       const artifactFiles: string[] = [];
 
       const artifactDir = path.join(tmp, `media_artifact_${Date.now()}`);
