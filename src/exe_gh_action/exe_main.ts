@@ -1,13 +1,8 @@
 import * as core from "@actions/core";
 import { StoreApis, EnvVariablePrefix } from "./store_apis";
+const storeApis = new StoreApis();
 
-export async function exe_main() {
-  const storeApis = new StoreApis();
-
-  try {
-    const command = core.getInput("command");
-    switch (command) {
-      case "configure": {
+async function setEnvVariables() {
         storeApis.productId = core.getInput("product-id");
         storeApis.sellerId = core.getInput("seller-id");
         storeApis.tenantId = core.getInput("tenant-id");
@@ -47,10 +42,17 @@ export async function exe_main() {
         core.setSecret(storeApis.clientSecret);
         core.setSecret(storeApis.accessToken);
 
-        break;
-      }
+}
+
+export async function exe_main() {
+
+  try {
+    const command = core.getInput("command");
+    switch (command) {
+
 
       case "get": {
+        await setEnvVariables();
         const moduleName = core.getInput("module-name");
         const listingLanguage = core.getInput("listing-language");
         const draftSubmission = await storeApis.GetExistingDraft(
@@ -63,6 +65,7 @@ export async function exe_main() {
       }
 
       case "update": {
+        await setEnvVariables();
         const updatedMetadataString = core.getInput("metadata-update");
         const updatedProductString = core.getInput("product-update");
         if (!updatedMetadataString && !updatedProductString) {
@@ -89,6 +92,7 @@ export async function exe_main() {
       }
 
       case "poll": {
+        await setEnvVariables();
         const pollingSubmissionId = core.getInput("polling-submission-id");
 
         if (!pollingSubmissionId) {
@@ -105,6 +109,7 @@ export async function exe_main() {
       }
 
       case "publish": {
+        await setEnvVariables();
         const submissionId = await storeApis.PublishSubmission();
         core.setOutput("polling-submission-id", submissionId);
 
