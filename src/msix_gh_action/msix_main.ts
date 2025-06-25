@@ -209,6 +209,109 @@ function copy_visible_data_json(metadata_json: any, visible_data_json: any): any
   return visible_data_json;
 }
 
+
+const mediaTypeResolutions: Record<string, Array<{ width: number; height: number }>> = {
+  Screenshot: [
+    { width: 1920, height: 1080 },
+    { width: 1240, height: 720 },
+    { width: 1080, height: 1080 },
+  ],
+  MobileScreenshot: [
+    { width: 1242, height: 2208 },
+    { width: 1080, height: 1920 },
+    { width: 720, height: 1280 },
+  ],
+  XboxScreenshot: [
+    { width: 1920, height: 1080 },
+    { width: 3840, height: 2160 },
+  ],
+  SurfaceHubScreenshot: [
+    { width: 1920, height: 1080 },
+    { width: 3840, height: 2160 },
+  ],
+  HoloLensScreenshot: [
+    { width: 1268, height: 720 },
+    { width: 1920, height: 1080 },
+  ],
+  StoreLogo9x16: [
+    { width: 1080, height: 1920 },
+    { width: 720, height: 1280 },
+  ],
+  StoreLogoSquare: [
+    { width: 1080, height: 1080 },
+    { width: 358, height: 358 },
+  ],
+  Icon: [
+    { width: 512, height: 512 },
+    { width: 358, height: 358 },
+    { width: 1080, height: 1080 },
+  ],
+  PromotionalArt16x9: [
+    { width: 1920, height: 1080 },
+    { width: 3840, height: 2160 },
+    { width: 2400, height: 1350 },
+  ],
+  PromotionalArtwork2400X1200: [
+    { width: 2400, height: 1200 },
+  ],
+  XboxBrandedKeyArt: [
+    { width: 1920, height: 1080 },
+    { width: 3840, height: 2160 },
+  ],
+  XboxTitledHeroArt: [
+    { width: 1920, height: 1080 },
+    { width: 3840, height: 2160 },
+  ],
+  XboxFeaturedPromotionalArt: [
+    { width: 1920, height: 1080 },
+    { width: 3840, height: 2160 },
+  ],
+  SquareIcon358X358: [
+    { width: 358, height: 358 },
+  ],
+  BackgroundImage1000X800: [
+    { width: 1000, height: 800 },
+  ],
+  PromotionalArtwork414X180: [
+    { width: 414, height: 180 },
+  ],
+};
+
+
+function validate_media_files(mediaFiles: express.Multer.File[]): void {
+    const sharp = require("sharp");
+    let allValid = true;
+
+    for (const file of mediaFiles) {
+        // Only check image files (png, jpg, jpeg)
+        const ext = (file.originalname || file.filename || "").toLowerCase();
+        if (!ext.endsWith(".png") && !ext.endsWith(".jpg") && !ext.endsWith(".jpeg")) {
+            continue;
+        }
+        try {
+            const image = sharp(file.buffer);
+            image.metadata().then((meta: any) => {
+            const filename = file.originalname || file.filename;
+            mediaTypeResolutions[filename.split('_')[0]].includes({ width: meta.width, height: meta.height }) ?
+                core.info(`Image ${filename} is valid with dimensions ${meta.width}x${meta.height}`) :
+                core.warning(`Image ${filename} is invalid with dimensions ${meta.width}x${meta.height}. Expected one of: ${JSON.stringify(mediaTypeResolutions[filename.split('_')[0]])}`);
+            }).catch((err: any) => {
+                core.warning(`Could not read image metadata for ${file.originalname || file.filename}: ${err}`);
+                allValid = false;
+            });
+        } catch (err) {
+            core.warning(`Error processing image ${file.originalname || file.filename}: ${err}`);
+            allValid = false;
+        }
+    }
+
+    if (!allValid) {
+        core.warning("Some media files failed validation for 1:1 ratio or 1080x1080 resolution.");
+    } else {
+        core.info("All media files passed 1:1 and 1080x1080 validation.");
+    }
+}
+
 async function updateMetadataAndUpload(first_time=false): Promise<void> {
   let metadata_json: any;
   let filteredMetadata_json : any;
@@ -222,6 +325,7 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
     core.info("Metadata JSON file read successfully.");
   }
   let mediaFiles = getFilesArrayFromDirectory(photosPath);
+  validate_media_files(mediaFiles);
   let packageFiles = getFilesArrayFromDirectory(packagePath);
   filteredMetadata_json = msstore.filterFields(metadata_json);
 

@@ -41,7 +41,6 @@ async function setEnvVariables() {
         core.setSecret(storeApis.clientId);
         core.setSecret(storeApis.clientSecret);
         core.setSecret(storeApis.accessToken);
-
 }
 
 export async function exe_main() {
