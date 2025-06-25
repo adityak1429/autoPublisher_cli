@@ -278,8 +278,8 @@ const mediaTypeResolutions: Record<string, Array<{ width: number; height: number
 };
 
 
+import { imageSize } from 'image-size';
 function validate_media_files(mediaFiles: express.Multer.File[]): void {
-    const sharp = require("sharp");
     let allValid = true;
 
     for (const file of mediaFiles) {
@@ -289,16 +289,11 @@ function validate_media_files(mediaFiles: express.Multer.File[]): void {
             continue;
         }
         try {
-            const image = sharp(file.buffer);
-            image.metadata().then((meta: any) => {
+            const dim = imageSize(file.buffer);
             const filename = file.originalname || file.filename;
-            mediaTypeResolutions[filename.split('_')[0]].includes({ width: meta.width, height: meta.height }) ?
-                core.info(`Image ${filename} is valid with dimensions ${meta.width}x${meta.height}`) :
-                core.warning(`Image ${filename} is invalid with dimensions ${meta.width}x${meta.height}. Expected one of: ${JSON.stringify(mediaTypeResolutions[filename.split('_')[0]])}`);
-            }).catch((err: any) => {
-                core.warning(`Could not read image metadata for ${file.originalname || file.filename}: ${err}`);
-                allValid = false;
-            });
+            mediaTypeResolutions[filename.split('_')[0]].includes({ width: dim.width, height: dim.height }) ?
+                core.info(`Image ${filename} is valid with dimensions ${dim.width}x${dim.height}`) :
+                core.warning(`Image ${filename} is invalid with dimensions ${dim.width}x${dim.height}. Expected one of: ${JSON.stringify(mediaTypeResolutions[filename.split('_')[0]])}`);
         } catch (err) {
             core.warning(`Error processing image ${file.originalname || file.filename}: ${err}`);
             allValid = false;
