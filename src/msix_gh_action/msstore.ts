@@ -550,6 +550,7 @@ export class MSStoreClient {
           return metadata_json;
         }
 
+        
         // Set fileStatus to "PendingDelete" for all packages 
         if (metadata_json.applicationPackages && Array.isArray(metadata_json.applicationPackages)) {
             for (const pkg of metadata_json.applicationPackages) {

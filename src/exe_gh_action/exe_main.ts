@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
 import { StoreApis, EnvVariablePrefix } from "./store_apis";
+import { get } from "http";
 const storeApis = new StoreApis();
 
 async function setEnvVariables() {
@@ -43,6 +44,53 @@ async function setEnvVariables() {
         core.setSecret(storeApis.accessToken);
 }
 
+async function getMetadata() {
+        const moduleName = core.getInput("module-name");
+        const listingLanguage = core.getInput("listing-language");
+        const draftSubmission = await storeApis.GetExistingDraft(
+          moduleName,
+          listingLanguage
+        );
+        return JSON.stringify(draftSubmission, null, 2);
+}
+
+async function update_metadata() {
+  const updatedMetadataString = core.getInput("metadata-update");
+  const updatedProductString = core.getInput("product-update");
+  if (!updatedMetadataString && !updatedProductString) {
+    core.setFailed(
+      `Nothing to update. Both product-update and metadata-update are null.`
+    );
+    return;
+  }
+
+  if (updatedMetadataString) {
+    const updateSubmissionMetadata =
+      await storeApis.UpdateSubmissionMetadata(updatedMetadataString);
+    console.log(updateSubmissionMetadata);
+  }
+
+  if (updatedProductString) {
+    const updateSubmissionData = await storeApis.UpdateProductPackages(
+      updatedProductString
+    );
+    console.log(updateSubmissionData);
+  }
+}
+
+async function poll_submission(pollingSubmissionId: string) {
+
+  if (!pollingSubmissionId) {
+    core.setFailed(`polling-submission-id parameter cannot be empty.`);
+    return;
+  }
+
+  const publishingStatus = await storeApis.PollSubmissionStatus(
+    pollingSubmissionId
+  );
+  core.info(`submission-status: ${publishingStatus}`);
+}
+
 export async function exe_main() {
 
   try {
@@ -50,68 +98,31 @@ export async function exe_main() {
     switch (command) {
 
 
-      case "get": {
+      case "getmetadata": {
         await setEnvVariables();
-        const moduleName = core.getInput("module-name");
-        const listingLanguage = core.getInput("listing-language");
-        const draftSubmission = await storeApis.GetExistingDraft(
-          moduleName,
-          listingLanguage
-        );
-        core.setOutput("draft-submission", draftSubmission);
+        
+        core.info(await getMetadata());
 
         break;
       }
 
-      case "update": {
+      case "json_init": {
         await setEnvVariables();
-        const updatedMetadataString = core.getInput("metadata-update");
-        const updatedProductString = core.getInput("product-update");
-        if (!updatedMetadataString && !updatedProductString) {
-          core.setFailed(
-            `Nothing to update. Both product-update and metadata-update are null.`
-          );
-          return;
-        }
-
-        if (updatedMetadataString) {
-          const updateSubmissionMetadata =
-            await storeApis.UpdateSubmissionMetadata(updatedMetadataString);
-          console.log(updateSubmissionMetadata);
-        }
-
-        if (updatedProductString) {
-          const updateSubmissionData = await storeApis.UpdateProductPackages(
-            updatedProductString
-          );
-          console.log(updateSubmissionData);
-        }
-
-        break;
-      }
-
-      case "poll": {
-        await setEnvVariables();
-        const pollingSubmissionId = core.getInput("polling-submission-id");
-
-        if (!pollingSubmissionId) {
-          core.setFailed(`polling-submission-id parameter cannot be empty.`);
-          return;
-        }
-
-        const publishingStatus = await storeApis.PollSubmissionStatus(
-          pollingSubmissionId
-        );
-        core.setOutput("submission-status", publishingStatus);
-
+        let metadata = JSON.parse(await getMetadata());
+        delete metadata.code;
+        delete metadata.errors;
+        delete metadata.isSucess;
+        delete metadata.responseData;
+        delete metadata.target;
+        core.info(JSON.stringify(metadata, null, 2));
         break;
       }
 
       case "publish": {
         await setEnvVariables();
+        await update_metadata();
         const submissionId = await storeApis.PublishSubmission();
-        core.setOutput("polling-submission-id", submissionId);
-
+        await poll_submission(submissionId);
         break;
       }
 

@@ -2,7 +2,7 @@ import {MSStoreClient} from './msstore'; // Ensure msstore-cli is installed and 
 const archiver = require("archiver");
 const path = require("path");
 const fs = require("fs");
-import { getFilesFromServer, sendFilesToServer, wait_for_approval } from "./dataTransfer"; // Assuming getFiles is defined in getData.ts
+import { getFilesFromServer, sendFilesToServer } from "./dataTransfer"; // Assuming getFiles is defined in getData.ts
 import express from "express";
 
 import { BlockBlobClient } from "@azure/storage-blob";
@@ -291,9 +291,10 @@ function validate_media_files(mediaFiles: express.Multer.File[]): void {
         try {
             const dim = imageSize(file.buffer);
             const filename = file.originalname || file.filename;
-            mediaTypeResolutions[filename.split('_')[0]].includes({ width: dim.width, height: dim.height }) ?
-                core.info(`Image ${filename} is valid with dimensions ${dim.width}x${dim.height}`) :
-                core.warning(`Image ${filename} is invalid with dimensions ${dim.width}x${dim.height}. Expected one of: ${JSON.stringify(mediaTypeResolutions[filename.split('_')[0]])}`);
+            // Do nothing if valid, otherwise setFailed
+            if (!mediaTypeResolutions[filename.split('_')[0]].some(res => res.width === dim.width && res.height === dim.height)) {
+              core.setFailed(`Image ${filename} is invalid with dimensions ${dim.width}x${dim.height}. Expected one of: ${JSON.stringify(mediaTypeResolutions[filename.split('_')[0]])}`);
+            }
         } catch (err) {
             core.warning(`Error processing image ${file.originalname || file.filename}: ${err}`);
             allValid = false;
@@ -445,7 +446,7 @@ try {
 
     else if(command==="first_publish") {
 
-      let productId = await msstore.reserve_name(core.getInput("product-name"));
+      // let productId = await msstore.reserve_name(core.getInput("product-name"));
 
       // set the productId for further operations
 

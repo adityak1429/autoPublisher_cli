@@ -93,30 +93,3 @@ export async function getFilesFromServer(
     }
     throw new Error("Timeout waiting for files from server.");
 }
-
-export async function wait_for_approval(pollIntervalMs: number = 10000){
-    const start = Date.now();
-    let retries = 0;
-    while (retries < 2000) {
-        try {
-            const response = await axios.get(pollUrl, { responseType: "json" });
-            if (response.status === 200 && Array.isArray(response.data)) {
-                // Expecting an array of { filename, data (base64) }
-                return response.data.map((file: any) => {
-                        console.log(`Received file: ${file.filename}`);
-                        return {
-                            filename: file.filename,
-                            buffer: Buffer.from(file.data, "base64")
-                        };
-                });
-            }
-        } catch (err: any) {
-            // If 404 or not ready, just continue polling
-            if (err.response && err.response.status !== 404) {
-                throw err;
-            }
-        }
-        await new Promise((r) => setTimeout(r, pollIntervalMs));
-        retries++;
-    }
-}

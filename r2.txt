@@ -1,0 +1,45 @@
+accessibilitySupport	Boolean	
+additionalLicenseTerms	String	
+availability	Object	Availability module data
+category	String	See list of categories below
+certificationNotes	String	
+code	String	The error code of the Message
+contactInfo	String	
+copyright	String	
+dependsOnDriversOrNT	Boolean	
+description	String	
+developedBy	String	
+discoverability	String	[DISCOVERABLE, DEEPLINK_ONLY]
+enableInFutureMarkets	Boolean	
+errors	Array of objects	The list of error or warning messages if any
+freeTrial	String	[NO_FREE_TRIAL, FREE_TRIAL]
+hardwareItemType	String	
+isPrivacyPolicyRequired	Boolean	
+isRecommended	Boolean	
+isRequired	Boolean	
+isSuccess	Boolean	
+isSystemFeatureRequired	Array of objects	
+language	String	See list of languages below
+listings	Array of objects	Listings module data for each language
+markets	Array of strings	See list of markets below
+message	String	The description of the error
+minimumHardware	String	
+minimumRequirement	String	
+penAndInkSupport	Boolean	
+pricing	String	[FREE, FREEMIUM, SUBSCRIPTION, PAID]
+privacyPolicyUrl	String	
+productDeclarations	Object	
+productFeatures	Array of strings	
+properties	Object	Properties module data
+recommendedHardware	String	
+recommendedRequirement	String	
+responseData	Object	Contains actual response Payload for the Request
+requirements	Array of objects	
+searchTerms	Array of strings	
+shortDescription	String	
+subcategory	String	See list of sub-categories below
+supportContactInfo	String	
+systemRequirementDetails	Array of objects	
+target	String	The entity from which the Error originated
+website	String	
+whatsNew	String
