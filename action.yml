@@ -38,6 +38,10 @@ inputs:
     description: 'set this flag to download metadata and media files which have been changed/added in pdp'
     required: false
     default: 'false'
+  type:
+    description: 'packaged or win32; if not specified, defaults to packaged'
+    required: true
+    default: 'packaged'
 runs:
   using: 'node12'
   main: 'dist/main.js'
