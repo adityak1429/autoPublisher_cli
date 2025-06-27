@@ -42,7 +42,7 @@ inputs:
     description: 'packaged or win32; if not specified, defaults to packaged'
     required: true
     default: 'packaged'
-  type:
+  append:
     description: 'set flag true if want to append media files else media files will be replaced'
     required: true
     default: 'false'
