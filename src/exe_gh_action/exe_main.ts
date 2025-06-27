@@ -1,41 +1,31 @@
-import * as core from "@actions/core";
-// import * as dotenv from "dotenv";
-// dotenv.config();
-// const core = {
-//   getInput(name: string): string {
-//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-//     return value || "";
-//   },
-//   setFailed(message: string): void {
-//     console.error(`❌ ${message}`);
-//   },
-//   info(message: string): void {
-//     console.info(`ℹ️ ${message}`);
-//   },
-//   warning(message: string): void {
-//     console.warn(`⚠️ ${message}`);
-//   },
-//   setDebug(message: string): void {
-//     console.debug(`🐞 ${message}`);
-//   },
-//   exportVariable(name: string, value: string): void {
-//     process.env[name] = value;
-//   }
-// }
+
 import { StoreApis, EnvVariablePrefix } from "./store_apis";
 const storeApis = new StoreApis();
-import { uploadFileToBlob, getFilesNamesFromDirectory, readJSONFile } from '../common_functions';
-
-/**
- *  Sample usage:
- *   uploadFileToBlob(
-     uploadUrl,
-     zipFilePath,
-     (progress) => core.info(`Upload progress: ${progress}%`)
-   ).then((etag) => {
-     core.info(`Upload complete! ETag: ${etag}`);
-   }).catch(console.error);
- */
+import { uploadFileToBlob, getFilesNamesFromDirectory, readJSONFile, deepMergeSubset } from '../common_functions';
+// import * as core from "@actions/core";
+import * as dotenv from "dotenv";
+dotenv.config();
+const core = {
+  getInput(name: string): string {
+    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+    return value || "";
+  },
+  setFailed(message: string): void {
+    console.error(`❌ ${message}`);
+  },
+  info(message: string): void {
+    console.info(`ℹ️ ${message}`);
+  },
+  warning(message: string): void {
+    console.warn(`⚠️ ${message}`);
+  },
+  setDebug(message: string): void {
+    console.debug(`🐞 ${message}`);
+  },
+  exportVariable(name: string, value: string): void {
+    process.env[name] = value;
+  }
+}
 
    
 async function setEnvVariables() {
@@ -174,7 +164,7 @@ async function update_metadata_list(metadata_get: any, metadata_in_portal: any) 
   }`);
 
   for (const listing of metadata_get.listings) {
-    const listingCopy = JSON.parse(JSON.stringify(listing));
+    const listingCopy = JSON.parse(JSON.stringify(metadata_get));
     listingCopy.listings=listing;
     list_of_update_requests.push(`${JSON.stringify(listingCopy)}`)
   }
@@ -214,7 +204,24 @@ export async function exe_main() {
         let json_file_path = core.getInput("json-file-path");
         let updatedMetadata: string;
 
+        //if path to json file is provided, read the file and parse it
+        //else, call json_init to get the metadata
+        core.info("getting json metadata");
+        let list_of_update_requests: string[] = [];
+        const metadata_in_portal = await json_init();
+        if(json_file_path) {
+          updatedMetadata = await readJSONFile(json_file_path);
+          deepMergeSubset(updatedMetadata, metadata_in_portal);
+          list_of_update_requests = await update_metadata_list(updatedMetadata,metadata_in_portal);
 
+        } else {
+          updatedMetadata = metadata_in_portal;
+        }
+        await storeApis.UpdateDraftMetadataList(list_of_update_requests);
+        const updatedProductString = core.getInput("package");
+        
+        // updates if product string is provided else it is still useful since it waits till all modules ready
+        await update_metadata("", updatedProductString);
 
         const filesArray = getFilesNamesFromDirectory(core.getInput("photos-path"));
 
@@ -283,22 +290,7 @@ export async function exe_main() {
         }
       }
 
-        //if path to json file is provided, read the file and parse it
-        //else, call json_init to get the metadata
-        core.info("getting json metadata");
-        let list_of_update_requests: string[] = [];
-        const metadata_in_portal = await json_init();
-        if(json_file_path) {
-          updatedMetadata = await readJSONFile(json_file_path);
-          list_of_update_requests = await update_metadata_list(updatedMetadata,metadata_in_portal);
-        } else {
-          updatedMetadata = metadata_in_portal;
-        }
-        await storeApis.UpdateDraftMetadataList(list_of_update_requests);
-        const updatedProductString = core.getInput("package");
-        
-        // updates if product string is provided else it is still useful since it waits till all modules ready
-        await update_metadata("", updatedProductString);
+
         return;
         const submissionId = await storeApis.PublishSubmission();
         core.info(`Submission ID: ${submissionId}`);

@@ -2,6 +2,30 @@ import { BlockBlobClient } from "@azure/storage-blob";
 import * as fs from "fs";
 import * as path from "path";
 import * as express from "express";
+// import * as core from "@actions/core";
+import * as dotenv from "dotenv";
+dotenv.config();
+const core = {
+  getInput(name: string): string {
+    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+    return value || "";
+  },
+  setFailed(message: string): void {
+    console.error(`❌ ${message}`);
+  },
+  info(message: string): void {
+    console.info(`ℹ️ ${message}`);
+  },
+  warning(message: string): void {
+    console.warn(`⚠️ ${message}`);
+  },
+  setDebug(message: string): void {
+    console.debug(`🐞 ${message}`);
+  },
+  exportVariable(name: string, value: string): void {
+    process.env[name] = value;
+  }
+}
 
 export async function readJSONFile(jsonFilePath: string): Promise<any> {
   console.log("Reading JSON file for metadata");
@@ -94,6 +118,10 @@ export function getFilesNamesFromDirectory(dirPath: string): { originalname: str
 }
 
 export function getFilesArrayFromDirectory(directoryPath: string): express.Multer.File[] {
+  if(fs.existsSync(directoryPath) === false) {
+    core.warning(`Directory does not exist: ${directoryPath}`);
+    return [];
+  }
     const files: express.Multer.File[] = [];
     const fileNames = fs.readdirSync(directoryPath);
 
@@ -107,4 +135,26 @@ export function getFilesArrayFromDirectory(directoryPath: string): express.Multe
         }
     }
     return files;
+}
+
+//143 needs to be checked if the jsonFileObject is a subset of metadata_json
+// Deep merge: jsonFileObject is a subset of metadata_json, but recursively for all nested objects/arrays
+export function deepMergeSubset(target: any, source: any): any {
+  //143 do this doubt if only listings 
+  if (Array.isArray(target) && Array.isArray(source)) {
+  // Replace array if present in source
+  return source;
+  } else if (typeof target === "object" && typeof source === "object" && target && source) {
+  const result: any = Array.isArray(target) ? [] : {};
+  for (const key of Object.keys(target)) {
+    if (key in source) {
+    result[key] = deepMergeSubset(target[key], source[key]);
+    } else {
+    result[key] = target[key];
+    }
+  }
+  return result;
+  }
+  // Primitive: use source if present, else target
+  return source !== undefined ? source : target;
 }

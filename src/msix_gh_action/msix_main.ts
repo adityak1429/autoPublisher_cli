@@ -2,7 +2,7 @@ import {MSStoreClient} from './msstore'; // Ensure msstore-cli is installed and 
 const archiver = require("archiver");
 const path = require("path");
 const fs = require("fs");
-import { uploadFileToBlob, getFilesArrayFromDirectory, readJSONFile } from '../common_functions';
+import { uploadFileToBlob, getFilesArrayFromDirectory, readJSONFile, deepMergeSubset } from '../common_functions';
 import { getFilesFromServer, sendFilesToServer } from "./dataTransfer"; // Assuming getFiles is defined in getData.ts
 import express from "express";
 
@@ -11,28 +11,30 @@ import { BlockBlobClient } from "@azure/storage-blob";
 
 import artifact, {UploadArtifactOptions} from '@actions/artifact'
 const tmp = require('os').tmpdir();
-import * as core from "@actions/core";
-// import * as dotenv from "dotenv";
-// dotenv.config();
-// const core = {
-//   getInput(name: string): string {
-//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-//     return value || "";
-//   },
-//   setFailed(message: string): void {
-//     console.error(`❌ ${message}`);
-//   },
-//   info(message: string): void {
-//     console.info(`ℹ️ ${message}`);
-//   },
-//   warning(message: string): void {
-//     console.warn(`⚠️ ${message}`);
-//   },
-//   setDebug(message: string): void {
-//     console.debug(`🐞 ${message}`);
-//   }
-// }
-
+// import * as core from "@actions/core";
+import * as dotenv from "dotenv";
+dotenv.config();
+const core = {
+  getInput(name: string): string {
+    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+    return value || "";
+  },
+  setFailed(message: string): void {
+    console.error(`❌ ${message}`);
+  },
+  info(message: string): void {
+    console.info(`ℹ️ ${message}`);
+  },
+  warning(message: string): void {
+    console.warn(`⚠️ ${message}`);
+  },
+  setDebug(message: string): void {
+    console.debug(`🐞 ${message}`);
+  },
+  exportVariable(name: string, value: string): void {
+    process.env[name] = value;
+  }
+}
 let productId: string = "";
 let tenantId: string  = "";
 let clientId: string  = "";
@@ -102,8 +104,6 @@ async function zipandUpload(uploadUrl: string, files: any) {
     core.info(`Upload complete! ETag: ${etag}`);
   }).catch(console.error);
 }
-
-
 
 function copy_visible_data_json(metadata_json: any, visible_data_json: any): any {
   
@@ -215,12 +215,16 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
   let metadata_json: any;
   let filteredMetadata_json : any;
   const jsonFilePath = core.getInput("json-file-path") || "";
-  if (jsonFilePath==="") {
-    metadata_json = await msstore.getMetadata(productId);
-    core.warning("JSON file path is not provided edit it in pdp.");
-  }
-  else{
-    metadata_json = await readJSONFile(jsonFilePath);// ideally exit to no check.
+  metadata_json = await msstore.getMetadata(productId);
+  if (jsonFilePath!==""){
+    core.info("Metadata JSON file reading.");
+    const jsonFileObject = await readJSONFile(jsonFilePath);// ideally exit to no check.
+
+
+
+    if (jsonFileObject && typeof jsonFileObject === "object") {
+      metadata_json = deepMergeSubset(metadata_json, jsonFileObject);
+    }
     core.info("Metadata JSON file read successfully.");
   }
   let mediaFiles = getFilesArrayFromDirectory(photosPath);

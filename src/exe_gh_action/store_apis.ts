@@ -166,8 +166,6 @@ export class StoreApis {
   private UpdateCurrentDraftSubmissionMetadata(
     submissionMetadata: string
   ): Promise<ResponseWrapper<unknown>> {
-    console.log(`Updating submission metadata with ${JSON.stringify(submissionMetadata, null, 2)}`);
-
     return this.CreateStoreHttpRequest(
       JSON.stringify(submissionMetadata,null,2),
       "PUT",
@@ -549,6 +547,7 @@ export class StoreApis {
   // my addition 
   // create listing assets and commit listing assets
   public async CreateListingAssets(language:string, num_screenshots: number, num_logos: number) {
+    console.log("Creating listing assets for language:", language, "with", num_screenshots, "screenshots and", num_logos, "logos.");
     return this.CreateStoreHttpRequest(
       `
       {language: "${language}",

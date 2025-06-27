@@ -36,9 +36,13 @@ export async function apiRequest<T = any>({
         responseType: 'json',
     };
 
+    // IF RESPONSE IS 403 then throw error TO GET TOKEN AGAIN
     try {
+        
         const response = await axios.request<T>(config);
-        return response.data;
+        if (response.status === 403) {
+            return response.data;
+        }
     } catch (error: any) {
         throw error.response?.data || error.message || error;
     }
