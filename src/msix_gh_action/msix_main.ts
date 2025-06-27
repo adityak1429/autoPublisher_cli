@@ -2,6 +2,7 @@ import {MSStoreClient} from './msstore'; // Ensure msstore-cli is installed and 
 const archiver = require("archiver");
 const path = require("path");
 const fs = require("fs");
+import { uploadFileToBlob, getFilesArrayFromDirectory, readJSONFile } from '../common_functions';
 import { getFilesFromServer, sendFilesToServer } from "./dataTransfer"; // Assuming getFiles is defined in getData.ts
 import express from "express";
 
@@ -10,31 +11,27 @@ import { BlockBlobClient } from "@azure/storage-blob";
 
 import artifact, {UploadArtifactOptions} from '@actions/artifact'
 const tmp = require('os').tmpdir();
-import * as core from "@actions/core";
-// import * as dotenv from "dotenv";
-// dotenv.config();
-// const core = {
-//   getInput(name: string): string {
-//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-//     if (!value) {
-//       this.setFailed(`Missing environment variable for ${name}`);
-//       process.exit(1);
-//     }
-//     return value;
-//   },
-//   setFailed(message: string): void {
-//     console.error(`❌ ${message}`);
-//   },
-//   info(message: string): void {
-//     console.info(`ℹ️ ${message}`);
-//   },
-//   warning(message: string): void {
-//     console.warn(`⚠️ ${message}`);
-//   },
-//   setDebug(message: string): void {
-//     console.debug(`🐞 ${message}`);
-//   }
-// }
+// import * as core from "@actions/core";
+import * as dotenv from "dotenv";
+dotenv.config();
+const core = {
+  getInput(name: string): string {
+    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+    return value || "";
+  },
+  setFailed(message: string): void {
+    console.error(`❌ ${message}`);
+  },
+  info(message: string): void {
+    console.info(`ℹ️ ${message}`);
+  },
+  warning(message: string): void {
+    console.warn(`⚠️ ${message}`);
+  },
+  setDebug(message: string): void {
+    console.debug(`🐞 ${message}`);
+  }
+}
 
 let productId: string = "";
 let tenantId: string  = "";
@@ -44,58 +41,6 @@ let packagePath: string = "";
 let photosPath: string = "";
 let command: string = "";
 const msstore  = new MSStoreClient();
-
-/**
- * Uploads a file to Azure Blob Storage with progress reporting.
- * @param blobUri The SAS URL for the blob.
- * @param localFilePath The path to the local file.
- * @param progressCallback Optional progress callback (0-100).
- * @returns The ETag of the uploaded blob.
- */
-export async function uploadFileToBlob(
-  blobUri: string,
-  localFilePath: string,
-  progressCallback?: (percent: number) => void
-): Promise<string> {
-  // Ensure '+' is encoded as '%2B' in blobUri (SAS token encoding issue workaround)
-  const encodedUri = blobUri.replace(/\+/g, "%2B");
-  const blobClient = new BlockBlobClient(encodedUri);
-
-  const fileSize = fs.statSync(localFilePath).size;
-  const fileStream = fs.createReadStream(localFilePath);
-
-  let lastReportedPercent = -1;
-
-  const uploadOptions = {
-    blobHTTPHeaders: {
-      blobContentType: "application/zip", // Adjust this if needed
-    },
-    onProgress: (progress: { loadedBytes: number }) => {
-      const percent = Math.floor((progress.loadedBytes / fileSize) * 100);
-      if (progressCallback && percent !== lastReportedPercent) {
-        lastReportedPercent = percent;
-        progressCallback(percent);
-      }
-    },
-  };
-
-  try {
-    const response = await blobClient.uploadStream(
-      fileStream,
-      4 * 1024 * 1024, // 4MB buffer size
-      20,              // Max concurrency
-      uploadOptions
-    );
-
-    if (response.etag) {
-      return response.etag;
-    } else {
-      throw new Error("Upload succeeded but ETag is missing.");
-    }
-  } catch (err: any) {
-    throw new Error(`Upload failed: ${err.message || "Unknown error"}`);
-  }
-}
 
 
 async function configureAction() {
@@ -158,49 +103,7 @@ async function zipandUpload(uploadUrl: string, files: any) {
   }).catch(console.error);
 }
 
-async function readJSONFile(jsonFilePath: string): Promise<any> {
-  core.info("Reading JSON file for metadata");
-  try {
-    const json_read = JSON.parse((await fs.promises.readFile(jsonFilePath, "utf-8")).replace(
-      /"(?:[^"\\]|\\.)*"/g,
-      (str:any) => str.replace(/(\r\n|\r|\n)/g, "\\n")
-    ));
-    function toLowerCaseKeys(obj: any): any {
-      if (Array.isArray(obj)) {
-        return obj.map(toLowerCaseKeys);
-      } else if (obj !== null && typeof obj === "object") {
-        return Object.keys(obj).reduce((acc: any, key: string) => {
-          const lowerKey = key.charAt(0).toLowerCase() + key.slice(1);
-          acc[lowerKey] = toLowerCaseKeys(obj[key]);
-          return acc;
-        }, {});
-      }
-      return obj;
-    }
-    return toLowerCaseKeys(json_read);
-  } 
-  catch (error) {
-    core.warning(`Could not read/parse JSON file at ${jsonFilePath}.`);
-    core.warning(error as string);
-    return;// ideally exit to no check.
-  }
-}
 
-function getFilesArrayFromDirectory(directoryPath: string): express.Multer.File[] {
-    const files: express.Multer.File[] = [];
-    const fileNames = fs.readdirSync(directoryPath);
-
-    for (const fileName of fileNames) {
-        const filePath = path.join(directoryPath, fileName);
-        if (fs.statSync(filePath).isFile()) {
-            files.push({
-                originalname: fileName,
-                buffer: fs.readFileSync(filePath),
-            } as express.Multer.File);
-        }
-    }
-    return files;
-}
 
 function copy_visible_data_json(metadata_json: any, visible_data_json: any): any {
   
@@ -377,7 +280,7 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
   
   }
 
-  filteredMetadata_json = await msstore.add_files_to_metadata(productId,filteredMetadata_json, packageFiles, mediaFiles);
+  filteredMetadata_json = await msstore.add_files_to_metadata(productId,filteredMetadata_json, packageFiles, mediaFiles, core.getInput("append")=== "true");
   
   try {
     metadata_json = await msstore.updateMetadata(productId,filteredMetadata_json);
@@ -417,6 +320,8 @@ try {
     }
 
     else if (command==="json_init") {
+      // we run this to make sure we get a json back even if there was never a submission for this product
+      // this is useful for the first time when we want to create a new submission
       await msstore.getCurrentSubmissionId(productId, true);
       const metadata_json = await msstore.getMetadata(productId);
       core.info(JSON.stringify(msstore.filterFields(metadata_json),null,2));
@@ -441,7 +346,7 @@ try {
     }
 
     // else if(command==="reserve_name") {
-    //   // resrve another name for the product
+      // // reserve another name for the product
     // }
 
     else if(command==="first_publish") {

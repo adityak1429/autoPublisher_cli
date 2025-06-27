@@ -3,26 +3,26 @@ import * as https from "https";
 export const EnvVariablePrefix = "MICROSOFT_STORE_ACTION_";
 
 class ResponseWrapper<T> {
-  responseData: T;
-  isSuccess: boolean;
-  errors: Error[];
+  responseData!: T;
+  isSuccess!: boolean;
+  errors!: Error[];
 }
 
 class ErrorResponse {
-  statusCode: number;
-  message: string;
+  statusCode!: number;
+  message!: string;
 }
 
 class Error {
-  code: string;
-  message: string;
-  target: string;
+  code!: string;
+  message!: string;
+  target!: string;
 }
 
 class SubmissionResponse {
-  pollingUrl: string;
-  submissionId: string;
-  ongoingSubmissionId: string;
+  pollingUrl!: string;
+  submissionId!: string;
+  ongoingSubmissionId!: string;
 }
 
 enum PublishingStatus {
@@ -33,40 +33,40 @@ enum PublishingStatus {
 }
 
 class ModuleStatus {
-  isReady: boolean;
-  ongoingSubmissionId: string;
+  isReady!: boolean;
+  ongoingSubmissionId!: string;
 }
 
 class SubmissionStatus {
-  publishingStatus: PublishingStatus;
-  hasFailed: boolean;
+  publishingStatus!: PublishingStatus;
+  hasFailed!: boolean;
 }
 
 class ListingAssetsResponse {
-  listingAssets: ListingAsset[];
+  listingAssets!: ListingAsset[];
 }
 
 class ImageSize {
-  width: number;
-  height: number;
+  width!: number;
+  height!: number;
 }
 
 class ListingAsset {
-  language: string;
-  storeLogos: StoreLogo[];
-  screenshots: Screenshot[];
+  language!: string;
+  storeLogos!: StoreLogo[];
+  screenshots!: Screenshot[];
 }
 
 class Screenshot {
-  id: string;
-  assetUrl: string;
-  imageSize: ImageSize;
+  id!: string;
+  assetUrl!: string;
+  imageSize!: ImageSize;
 }
 
 class StoreLogo {
-  id: string;
-  assetUrl: string;
-  imageSize: ImageSize;
+  id!: string;
+  assetUrl!: string;
+  imageSize!: ImageSize;
 }
 
 export class StoreApis {
@@ -80,12 +80,12 @@ export class StoreApis {
     this.LoadState();
   }
 
-  public accessToken: string;
-  public productId: string;
-  public sellerId: string;
-  public tenantId: string;
-  public clientId: string;
-  public clientSecret: string;
+  public accessToken!: string;
+  public productId!: string;
+  public sellerId!: string;
+  public tenantId!: string;
+  public clientId!: string;
+  public clientSecret!: string;
 
   private Delay(ms: number): Promise<unknown> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -98,6 +98,7 @@ export class StoreApis {
       client_secret: this.clientSecret,
       scope: StoreApis.scope,
     };
+
 
     const formBody = [];
     for (const property in requestParameters) {
@@ -143,7 +144,7 @@ export class StoreApis {
     });
   }
 
-  private GetCurrentDraftSubmissionPackagesData(): Promise<
+  public async GetCurrentDraftSubmissionPackagesData(): Promise<
     ResponseWrapper<unknown>
   > {
     return this.CreateStoreHttpRequest(
@@ -154,21 +155,21 @@ export class StoreApis {
   }
 
   private GetCurrentDraftSubmissionMetadata(
-    moduleName: string,
-    listingLanguages: string
   ): Promise<ResponseWrapper<unknown>> {
     return this.CreateStoreHttpRequest(
       "",
       "GET",
-      `/submission/v1/product/${this.productId}/metadata/${moduleName}?languages=${listingLanguages}`
+      `/submission/v1/product/${this.productId}/metadata`
     );
   }
 
   private UpdateCurrentDraftSubmissionMetadata(
     submissionMetadata: string
   ): Promise<ResponseWrapper<unknown>> {
+    console.log(`Updating submission metadata with ${JSON.stringify(submissionMetadata, null, 2)}`);
+
     return this.CreateStoreHttpRequest(
-      JSON.stringify(submissionMetadata),
+      JSON.stringify(submissionMetadata,null,2),
       "PUT",
       `/submission/v1/product/${this.productId}/metadata`
     );
@@ -256,7 +257,7 @@ export class StoreApis {
           error.errors = [];
           error.errors[0] = new Error();
           error.errors[0].message = "Not found";
-          reject(error);
+          reject(`404 not found - >${JSON.stringify(error)}`);
           return;
         }
         let responseString = "";
@@ -331,26 +332,10 @@ export class StoreApis {
   }
 
   public async GetExistingDraft(
-    moduleName: string,
-    listingLanguage: string
   ): Promise<string> {
     return new Promise<string>((resolve, reject) => {
-      if (
-        moduleName &&
-        moduleName.toLowerCase() != "availability" &&
-        moduleName.toLowerCase() != "listings" &&
-        moduleName.toLowerCase() != "properties"
-      ) {
-        reject(
-          "Module name must be 'availability', 'listings' or 'properties'"
-        );
-        return;
-      }
 
-      (moduleName
-        ? this.GetCurrentDraftSubmissionMetadata(moduleName, listingLanguage)
-        : this.GetCurrentDraftSubmissionPackagesData()
-      )
+        this.GetCurrentDraftSubmissionMetadata()
         .then((currentDraftResponse) => {
           if (!currentDraftResponse.isSuccess) {
             reject(
@@ -424,11 +409,10 @@ export class StoreApis {
 
     const submissionMetadata = JSON.parse(submissionMetadataString);
 
-    console.log(submissionMetadata);
-
+    console.log("CHECK");
     const updateSubmissionData =
       await this.UpdateCurrentDraftSubmissionMetadata(submissionMetadata);
-    console.log(JSON.stringify(updateSubmissionData));
+    console.log("bruh");
 
     if (!updateSubmissionData.isSuccess) {
       return Promise.reject(
@@ -561,6 +545,51 @@ export class StoreApis {
         });
     });
   }
+
+  // my addition 
+  // create listing assets and commit listing assets
+  public async CreateListingAssets(language:string, num_screenshots: number, num_logos: number) {
+    return this.CreateStoreHttpRequest(
+      `
+      {language: "${language}",
+      createAssetRequest: {
+        Screenshot: ${num_screenshots},
+        Logo: ${num_logos}
+    }}`,
+      "POST",
+      `/submission/v1/product/${this.productId}/listings/assets/create`,
+    );
+  }
+
+  public async CommitListingAssets(language: string, screenshots: Array<{ id: string, primaryAssetUploadUrl: string }>, logos: Array<{ id: string, primaryAssetUploadUrl: string }>) {
+    console.log("looka", language, screenshots, logos);
+    return this.CreateStoreHttpRequest(
+      `{listingAssets: {
+      language: "${language}",
+      storeLogos: [
+        ${logos.map(l => `{ id: "${l.id}", assetUrl: "${l.primaryAssetUploadUrl}" }`).join(", ")}
+    ],
+      screenshots: [
+        ${screenshots.map(s => `{ id: "${s.id}", assetUrl: "${s.primaryAssetUploadUrl}" }`).join(", ")}
+      ]
+    }}`,
+      "PUT",
+      `/submission/v1/product/${this.productId}/listings/assets/commit`
+    );
+  }
+
+  public async UpdateDraftMetadataList(list_of_update_requests:string[]) {
+    for (const update_request of list_of_update_requests) {
+      const result = await this.UpdateCurrentDraftSubmissionMetadata(JSON.parse(update_request));
+      if (!result.isSuccess) {
+        console.error(`Failed to update draft metadata for request: ${JSON.stringify(result.errors)} the request was: ${update_request}`);
+      }
+      else
+        console.log(`Draft metadata updated successfully for request: ${update_request}`);
+    }
+  }
+
+
 
   private LoadState() {
     this.productId = process.env[`${EnvVariablePrefix}product_id`] ?? "";

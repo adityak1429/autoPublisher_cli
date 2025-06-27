@@ -91,8 +91,8 @@ export class MSStoreClient {
     async reserve_name(name: string, product_id?: string): Promise<string> {
       if (!this.accessToken) {
         console.error('Access token is not set. Please run configure first.');
-        return "";
-      }
+    }
+    return "";
     
       //work in progress
     }
@@ -376,7 +376,7 @@ export class MSStoreClient {
     async getStatus(productId:string, submissionId: string): Promise<string> {
         if (!this.accessToken) {
             console.error('Access token is not set. Please run configure first.');
-            return;
+            return "";
         }
 
         if (!submissionId || submissionId === "") {
@@ -483,7 +483,7 @@ export class MSStoreClient {
         return result;
     }
 
-    async add_files_to_metadata(productId: string, metadata_json: any, packageFiles: any, mediaFiles: any) {
+    async add_files_to_metadata(productId: string, metadata_json: any, packageFiles: any, mediaFiles: any, append: boolean = false): Promise<any> {
         // Ensure applicationPackages exists and is an array
         if (!Array.isArray(metadata_json.applicationPackages)) {
             metadata_json.applicationPackages = [];
@@ -558,14 +558,17 @@ export class MSStoreClient {
             }
         }
 
-        // Set fileStatus to "PendingDelete" for all images 
-        const listings = metadata_json?.listings;
-        if (listings && typeof listings === "object") {
-            for (const locale of Object.keys(listings)) {
-                const images = listings[locale]?.baseListing?.images;
-                if (Array.isArray(images)) {
-                    for (const img of images) {
-                        img.fileStatus = "PendingDelete";
+        // If append is true, we do not delete existing images
+        if(!append){
+            // Set fileStatus to "PendingDelete" for all images 
+            const listings = metadata_json?.listings;
+            if (listings && typeof listings === "object") {
+                for (const locale of Object.keys(listings)) {
+                    const images = listings[locale]?.baseListing?.images;
+                    if (Array.isArray(images)) {
+                        for (const img of images) {
+                            img.fileStatus = "PendingDelete";
+                        }
                     }
                 }
             }
@@ -582,6 +585,8 @@ export class MSStoreClient {
             metadata_json.applicationPackages.push(entry);
         }
 
+        
+        //143 todo pending delete existing icon/trailer video/ trailer image if it already exists in metadata_json in same listing
         // PendingUpload all photos and trailers
         for (const file of mediaFiles) {
             const fileName = file.filename || file.originalname;
@@ -613,6 +618,13 @@ export class MSStoreClient {
                                 ImageType: type
                             });
                         }
+                        if (type === "Icon" || type === "TrailerImage" || type === "Trailer") {
+                            // If the icon or trailer image already exists, set its fileStatus to PendingDelete
+                            const existingImage = metadata_json.listings[locale].baseListing.images.find(img => img.type === type);
+                            if (existingImage) {
+                                existingImage.fileStatus = "PendingDelete";
+                            }
+                        }
                     }
                 } else if (metadata_json.listings[locale]) {
                     // Add the image entry to the specific locale in listings
@@ -626,6 +638,13 @@ export class MSStoreClient {
                             fileName: fileName,
                             ImageType: type
                         });
+                        if (type === "Icon" || type === "TrailerImage" || type === "Trailer") {
+                            // If the icon or trailer image already exists, set its fileStatus to PendingDelete
+                            const existingImage = metadata_json.listings[locale].baseListing.images.find(img => img.type === type);
+                            if (existingImage) {
+                                existingImage.fileStatus = "PendingDelete";
+                            }
+                        }
                     }
                 }
             }

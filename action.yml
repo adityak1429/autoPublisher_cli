@@ -25,8 +25,8 @@ inputs:
   client-secret:
     description: 'App Client secret'
     required: true
-  package-path:
-    description: 'Path to the app directory to upload'
+  package:
+    description: 'Path to the app directory to upload for msix and product json for win32'
     required: false
   photos-path:
     description: 'Path to the photos directory to upload'
@@ -42,6 +42,10 @@ inputs:
     description: 'packaged or win32; if not specified, defaults to packaged'
     required: true
     default: 'packaged'
+  append:
+    description: 'set flag true if want to append media files else media files will be replaced'
+    required: false
+    default: 'false'
 runs:
   using: 'node12'
   main: 'dist/main.js'
