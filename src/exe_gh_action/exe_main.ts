@@ -226,6 +226,17 @@ export async function exe_main() {
           const match = fileName.match(/^(Screenshot|Logo)_(\w+)_/i);
           if (match) {
             const [, type, language] = match;
+            if(language === "all") {
+              // add to all languages and future languages should have this file
+              // for (const lang of Object.keys(languageFilesMap)) {
+              //   if (type.toLowerCase() === "screenshot") {
+              //     languageFilesMap[lang].screenshots.push(filePath);
+              //   } else if (type.toLowerCase() === "logo") {
+              //     languageFilesMap[lang].logos.push(filePath);
+              //   }
+              // }
+              continue; // Skip further processing for this file
+            }
             if (!languageFilesMap[language]) {
               languageFilesMap[language] = { screenshots: [], logos: [] };
             }
@@ -234,6 +245,7 @@ export async function exe_main() {
             } else if (type.toLowerCase() === "logo") {
               languageFilesMap[language].logos.push(filePath);
             }
+            
           }
         }
 
