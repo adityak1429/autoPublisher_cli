@@ -1,27 +1,27 @@
-// import * as core from "@actions/core";
-import * as dotenv from "dotenv";
-dotenv.config();
-const core = {
-  getInput(name: string): string {
-    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-    return value || "";
-  },
-  setFailed(message: string): void {
-    console.error(`❌ ${message}`);
-  },
-  info(message: string): void {
-    console.info(`ℹ️ ${message}`);
-  },
-  warning(message: string): void {
-    console.warn(`⚠️ ${message}`);
-  },
-  setDebug(message: string): void {
-    console.debug(`🐞 ${message}`);
-  },
-  exportVariable(name: string, value: string): void {
-    process.env[name] = value;
-  }
-}
+import * as core from "@actions/core";
+// import * as dotenv from "dotenv";
+// dotenv.config();
+// const core = {
+//   getInput(name: string): string {
+//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+//     return value || "";
+//   },
+//   setFailed(message: string): void {
+//     console.error(`❌ ${message}`);
+//   },
+//   info(message: string): void {
+//     console.info(`ℹ️ ${message}`);
+//   },
+//   warning(message: string): void {
+//     console.warn(`⚠️ ${message}`);
+//   },
+//   setDebug(message: string): void {
+//     console.debug(`🐞 ${message}`);
+//   },
+//   exportVariable(name: string, value: string): void {
+//     process.env[name] = value;
+//   }
+// }
 import { StoreApis, EnvVariablePrefix } from "./store_apis";
 const storeApis = new StoreApis();
 import { uploadFileToBlob, getFilesNamesFromDirectory, readJSONFile } from '../common_functions';
