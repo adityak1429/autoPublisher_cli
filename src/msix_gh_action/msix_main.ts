@@ -48,7 +48,7 @@ async function configureAction() {
   tenantId = core.getInput("tenant-id");
   clientId = core.getInput("client-id");
   clientSecret = core.getInput("client-secret");
-  packagePath = core.getInput("package-path");
+  packagePath = core.getInput("package");
   photosPath = core.getInput("photos-path");
   command = core.getInput("command");
   if (!productId || !tenantId || !clientId || !clientSecret) {
