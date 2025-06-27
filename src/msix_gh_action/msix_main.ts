@@ -196,7 +196,7 @@ function validate_media_files(mediaFiles: express.Multer.File[]): void {
             const filename = file.originalname || file.filename;
             // Do nothing if valid, otherwise setFailed
             if (!mediaTypeResolutions[filename.split('_')[0]].some(res => res.width === dim.width && res.height === dim.height)) {
-              core.setFailed(`Image ${filename} is invalid with dimensions ${dim.width}x${dim.height}. Expected one of: ${JSON.stringify(mediaTypeResolutions[filename.split('_')[0]])}`);
+              core.warning(`Image ${filename} is invalid with dimensions ${dim.width}x${dim.height}. Expected one of: ${JSON.stringify(mediaTypeResolutions[filename.split('_')[0]])}`);
             }
         } catch (err) {
             core.warning(`Error processing image ${file.originalname || file.filename}: ${err}`);

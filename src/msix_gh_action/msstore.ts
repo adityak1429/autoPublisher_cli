@@ -333,7 +333,7 @@ export class MSStoreClient {
 
         await this.validate_json(metadata);
         //submit metadata to API
-        console.log(`Updating metadata for current submission with id ${this.submissionId} with metadata: ${JSON.stringify(metadata, null, 2)}`);
+        // console.log(`Updating metadata for current submission with id ${this.submissionId} with metadata: ${JSON.stringify(metadata, null, 2)}`);
         let res: any = {};
         try {
             res = await apiRequest<any>({
