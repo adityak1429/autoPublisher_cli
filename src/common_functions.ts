@@ -141,20 +141,14 @@ export function getFilesArrayFromDirectory(directoryPath: string): express.Multe
 // Deep merge: jsonFileObject is a subset of metadata_json, but recursively for all nested objects/arrays
 export function deepMergeSubset(target: any, source: any): any {
   //143 do this doubt if only listings 
-  if (Array.isArray(target) && Array.isArray(source)) {
-  // Replace array if present in source
-  return source;
-  } else if (typeof target === "object" && typeof source === "object" && target && source) {
-  const result: any = Array.isArray(target) ? [] : {};
-  for (const key of Object.keys(target)) {
-    if (key in source) {
-    result[key] = deepMergeSubset(target[key], source[key]);
-    } else {
-    result[key] = target[key];
+  if (typeof target === "object" && typeof source === "object" && target && source && !Array.isArray(target) && !Array.isArray(source)) {
+    const result: any = {};
+    for (const key of Object.keys(target)) {
+      // Only copy fields at depth 0: use source if present, else target
+      result[key] = key in source ? source[key] : target[key];
     }
+    return result;
   }
-  return result;
-  }
-  // Primitive: use source if present, else target
-  return source !== undefined ? source : target;
+  console.error("deepMergeSubset: Both target and source must be objects.");
+  return {};
 }

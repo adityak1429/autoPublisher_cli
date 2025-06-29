@@ -52,10 +52,21 @@ const fieldsNeccessary = [
 export class MSStoreClient {
     private accessToken: string | undefined;
     private submissionId: string = "";
+    private tenant_id: string = "";
+    private client_id: string = "";
+    private client_secret: string = "";
 
 
     async configure(tenantId: string, clientId: string, clientSecret: string): Promise<void> {
-        console.log("Starting the publish process...");
+        console.log("Getting accessToken...");
+        
+        tenantId = tenantId.trim();
+        clientId = clientId.trim();
+        clientSecret = clientSecret.trim();
+        this.tenant_id = tenantId;
+        this.client_id = clientId;
+        this.client_secret = clientSecret;
+        
         const resource = 'https://manage.devcenter.microsoft.com';
 
         const url = `https://login.microsoftonline.com/${tenantId}/oauth2/token`;
@@ -78,12 +89,36 @@ export class MSStoreClient {
             headers,
         });
 
-        this.accessToken = tokenResponse.access_token;
+        this.accessToken = tokenResponse.data.access_token;
         setHeaders({
             Authorization: `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json',
         });
         return;
+    }
+
+    async sendRequest(url: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', body: string =  "") {
+
+        try {
+            const response = await apiRequest({
+                url,
+                method,
+                body: body,
+            });
+            if (response.status === 403 || response.status === 401) {
+                // Try to refresh token and resend once
+                await this.configure(this.tenant_id, this.client_id, this.client_secret);
+                return await apiRequest({
+                    url,
+                    method,
+                    body: body ,
+                });
+            }
+            return response.data;
+        } catch (error) {
+            console.error(`Error in sendRequest: ${JSON.stringify(error, null, 2)}`);
+            throw error;
+        }
     }
 
     async reserve_name(name: string): Promise<string>;
@@ -100,10 +135,8 @@ export class MSStoreClient {
     async createSubmission(productId: string) {
         try {
             console.log("Creating a new submission...");
-            const submissionResponse = await apiRequest<any>({
-                url: `${url}applications/${productId}/submissions`,
-                method: 'POST',
-            });
+            const submissionResponse = await this.sendRequest(`${url}applications/${productId}/submissions`, 'POST');
+
             this.submissionId = submissionResponse.id;
             console.log('Created new submission');
             return this.submissionId;
@@ -117,11 +150,8 @@ export class MSStoreClient {
         console.log('Submission ID is not set, fetching current submission ID');
        let product_data: any;
         try {
-            product_data = await apiRequest<any>({
-                url: `${url}applications/${productId}`,
-                method: 'GET',
-            });
             console.log('Getting app data');
+            product_data = await this.sendRequest(`${url}applications/${productId}`, 'GET');
         } catch (error) {
             console.error(`Error checking current submissions get on ${url}applications/${productId} ${JSON.stringify(error, null, 2)}`);
             return "";
@@ -165,10 +195,7 @@ export class MSStoreClient {
 
         let metadata: any;
         try {
-            metadata = await apiRequest<any>({
-                url: `${url}applications/${productId}/submissions/${this.submissionId}`,
-                method: 'GET',
-            });
+            metadata = await this.sendRequest(`${url}applications/${productId}/submissions/${this.submissionId}`, 'GET');
             console.log(`Got metadata for current submission with id ${this.submissionId}`);
         } catch (error) {
             console.error(`Error getting metadata for current submissions ${error}`);
@@ -336,11 +363,7 @@ export class MSStoreClient {
         // console.log(`Updating metadata for current submission with id ${this.submissionId} with metadata: ${JSON.stringify(metadata, null, 2)}`);
         let res: any = {};
         try {
-            res = await apiRequest<any>({
-                url: `${url}applications/${productId}/submissions/${this.submissionId}`,
-                method: 'PUT',
-                body: JSON.stringify(metadata, null, 2),
-            });
+            res = await this.sendRequest(`${url}applications/${productId}/submissions/${this.submissionId}`, 'PUT', JSON.stringify(metadata, null, 2));
             console.log('Metadata updated successfully');
         } catch (error) {
             console.error(`Error updating metadata for current submission ${JSON.stringify(error, null, 2)}`);
@@ -361,10 +384,7 @@ export class MSStoreClient {
         }
 
         try {
-            await apiRequest<any>({
-                url: `${url}applications/${productId}/submissions/${this.submissionId}`,
-                method: 'DELETE',
-            });
+            await this.sendRequest(`${url}applications/${productId}/submissions/${this.submissionId}`, 'DELETE');
             console.log('Submission deleted successfully, resetting submissionId');
             this.submissionId = ""; // Clear submissionId after deletion
         } catch (error) {
@@ -385,10 +405,7 @@ export class MSStoreClient {
 
         let status: any;
         try {
-            status = await apiRequest<any>({
-                url: `${url}applications/${productId}/submissions/${submissionId}/status`,
-                method: 'GET',
-            });
+            status = await this.sendRequest(`${url}applications/${productId}/submissions/${submissionId}/status`, 'GET');
             // console.log('Got submission status successfully');
             
         } catch (error) {
@@ -430,10 +447,7 @@ export class MSStoreClient {
         }
 
         try {
-            await apiRequest<any>({
-                url: `${url}applications/${productId}/submissions/${this.submissionId}/commit`,
-                method: 'POST',
-            });
+            await this.sendRequest(`${url}applications/${productId}/submissions/${this.submissionId}/commit`, 'POST');
             console.log('Submission committed successfully');
         } catch (error) {
             console.error(`Error committing submission ${JSON.stringify(error, null, 2)}`);
@@ -483,7 +497,19 @@ export class MSStoreClient {
         return result;
     }
 
+    
     async add_files_to_metadata(productId: string, metadata_json: any, packageFiles: any, mediaFiles: any, append: boolean = false): Promise<any> {
+        
+        function list_from_locale(locale: string): string[] {
+            if (locale.startsWith("all")) {
+                // Exclude locales listed after 'all', e.g., all_en,fr
+                const excludeList = locale.length > 3 ? locale.slice(4).split(",") : [];
+                return Object.keys(metadata_json.listings).filter(loc => !excludeList.includes(loc));
+            } else {
+                return locale.split(",");
+            }
+        }
+        
         // Ensure applicationPackages exists and is an array
         if (!Array.isArray(metadata_json.applicationPackages)) {
             metadata_json.applicationPackages = [];
@@ -512,6 +538,7 @@ export class MSStoreClient {
         metadata_json.trailers = []; // Reinitialize trailers 
 
         let metadata_in_portal = await this.getMetadata(productId);
+
         if (metadata_in_portal) {
             // Copy applicationPackages from portal to metadata_json
             if (Array.isArray(metadata_in_portal.applicationPackages)) {
@@ -549,17 +576,16 @@ export class MSStoreClient {
           console.warn("No listings found in metadata_json, skipping file/media addition.");
           return metadata_json;
         }
-
         
-        // Set fileStatus to "PendingDelete" for all packages 
-        if (metadata_json.applicationPackages && Array.isArray(metadata_json.applicationPackages)) {
-            for (const pkg of metadata_json.applicationPackages) {
-                pkg.fileStatus = "PendingDelete";
-            }
-        }
-
+        
         // If append is true, we do not delete existing images
         if(!append){
+            // Set fileStatus to "PendingDelete" for all packages 
+            if (metadata_json.applicationPackages && Array.isArray(metadata_json.applicationPackages)) {
+                for (const pkg of metadata_json.applicationPackages) {
+                    pkg.fileStatus = "PendingDelete";
+                }
+            }
             // Set fileStatus to "PendingDelete" for all images 
             const listings = metadata_json?.listings;
             if (listings && typeof listings === "object") {
@@ -586,7 +612,7 @@ export class MSStoreClient {
         }
 
         
-        //143 todo pending delete existing icon/trailer video/ trailer image if it already exists in metadata_json in same listing
+        //143 todo pending delete existing trailer video/ trailer image if it already exists in metadata_json in same listing
         // PendingUpload all photos and trailers
         for (const file of mediaFiles) {
             const fileName = file.filename || file.originalname;
@@ -600,51 +626,29 @@ export class MSStoreClient {
             const nameParts = fileName.split("_");
             const type = nameParts[0];
             const locale = nameParts.length > 1 ? nameParts[1] : null;
+            const langs = list_from_locale(locale);
 
-            if (ValidImageTypes.includes(type) && locale) {
-                if (locale.startsWith("all")) {
-                    const exclude_list = locale.slice(4).split(",") || [];
-                    // Add to all locales
-                    for (const loc of Object.keys(metadata_json.listings)) {
-                        if (
-                            metadata_json.listings[loc] &&
-                            metadata_json.listings[loc].baseListing &&
-                            !exclude_list.includes(loc) &&
-                            Array.isArray(metadata_json.listings[loc].baseListing.images)
-                        ) {
-                            metadata_json.listings[loc].baseListing.images.push({
-                                fileStatus: "PendingUpload",
-                                fileName: fileName,
-                                ImageType: type
-                            });
-                        }
-                        if (type === "Icon" || type === "TrailerImage" || type === "Trailer") {
+            if (ValidImageTypes.includes(type)) {
+                for (const loc of langs) {
+                    if (
+                        metadata_json.listings[loc] &&
+                        metadata_json.listings[loc].baseListing
+                    ) {
+                        if (!metadata_json.listings[loc].baseListing.images) metadata_json.listings[loc].baseListing.images=[];
+
+                        if (type === "Icon") {
                             // If the icon or trailer image already exists, set its fileStatus to PendingDelete
-                            const existingImage = metadata_json.listings[locale].baseListing.images.find(img => img.type === type);
+                            const existingImage = metadata_json.listings[loc].baseListing.images.find(img => img.imageType === type);
                             if (existingImage) {
                                 existingImage.fileStatus = "PendingDelete";
                             }
                         }
-                    }
-                } else if (metadata_json.listings[locale]) {
-                    // Add the image entry to the specific locale in listings
-                    if (
-                        metadata_json.listings[locale] &&
-                        metadata_json.listings[locale].baseListing &&
-                        Array.isArray(metadata_json.listings[locale].baseListing.images)
-                    ) {
-                        metadata_json.listings[locale].baseListing.images.push({
+
+                        metadata_json.listings[loc].baseListing.images.push({
                             fileStatus: "PendingUpload",
                             fileName: fileName,
-                            ImageType: type
+                            imageType: type
                         });
-                        if (type === "Icon" || type === "TrailerImage" || type === "Trailer") {
-                            // If the icon or trailer image already exists, set its fileStatus to PendingDelete
-                            const existingImage = metadata_json.listings[locale].baseListing.images.find(img => img.type === type);
-                            if (existingImage) {
-                                existingImage.fileStatus = "PendingDelete";
-                            }
-                        }
                     }
                 }
             }
@@ -654,15 +658,12 @@ export class MSStoreClient {
             }
             else if (type === "Trailer") {
                 let imageListJson: { [loc: string]: { title: string; imageList: any[] } } = {};
-
                 // Parse the locale from the file name
-                const langs = list_from_locale(locale);
                 for (const loc of langs) {
                     if (!imageListJson[loc]) {
                         imageListJson[loc] = { title: fileName, imageList: [] };
                     }
                 }
-
                 metadata_json.trailers.push({ videoFileName: fileName, trailerAssets: imageListJson });
             }
             else {
@@ -670,31 +671,23 @@ export class MSStoreClient {
                 continue;
             }
         }
-    function list_from_locale(locale: string): string[] {
-        if (locale.startsWith("all")) {
-            // Exclude locales listed after 'all', e.g., all_en,fr
-            const excludeList = locale.length > 3 ? locale.slice(4).split(",") : [];
-            return Object.keys(metadata_json.listings).filter(loc => !excludeList.includes(loc));
-        } else {
-            return locale.split(",");
-        }
-    }
+
+        console.log("check4...");
     // Add all trailer images to metadata
     for (const file of mediaFiles) {
         const fileName = file.filename || file.originalname;
         const nameParts = fileName.split("_");
         const type = nameParts[0];
         const locale = nameParts.length > 1 ? nameParts[1] : null;
-        if (!fileName || !type || !locale) {
-            console.warn(`File name "${fileName}" is missing type or locale, skipping this file.`);
-            continue;
-        }
+
         if(type === "TrailerImage" ) {
             console.log(`Adding trailer image ${fileName} to metadata_json`);
-            const langs_img = list_from_locale(locale);
+            const langs = list_from_locale(locale);
             for (const trailer of metadata_json.trailers) {
-                for (const loc of langs_img) {
+                for (const loc of langs) {
                 if (trailer.trailerAssets && trailer.trailerAssets[loc]) {
+                    // remove existing Trailer image since only one image is allowed per locale
+                    trailer.trailerAssets[loc].imageList=[];
                     trailer.trailerAssets[loc].imageList.push({
                         fileName: fileName,
                         description: null

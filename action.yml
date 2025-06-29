@@ -39,9 +39,9 @@ inputs:
     required: false
     default: 'false'
   type:
-    description: 'packaged or win32; if not specified, defaults to packaged'
+    description: 'msix or win32; if not specified, defaults to msix'
     required: true
-    default: 'packaged'
+    default: 'msix'
   type:
     description: 'set flag true if want to append media files else media files will be replaced'
     required: true

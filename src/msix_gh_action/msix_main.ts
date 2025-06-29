@@ -284,10 +284,13 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
   
   }
 
+  core.info("Adding files to metadata...");
   filteredMetadata_json = await msstore.add_files_to_metadata(productId,filteredMetadata_json, packageFiles, mediaFiles, core.getInput("append")=== "true");
-  
+  console.log(JSON.stringify(filteredMetadata_json, null, 2));
   try {
+    core.info("Updating metadata...");
     metadata_json = await msstore.updateMetadata(productId,filteredMetadata_json);
+    core.info("Metadata updated successfully.");
   } catch (error: unknown) {
     core.setFailed(`Failed to update metadata`);
     core.setFailed(error as string);

@@ -22,7 +22,7 @@ export async function apiRequest<T = any>({
     body,
     headers,
     timeout = 30000,
-}: ApiRequestOptions): Promise<T> {
+}: ApiRequestOptions) {
     // Merge global authHeaders with per-request headers
     const mergedHeaders = { ...authHeaders, ...headers };
 
@@ -39,10 +39,8 @@ export async function apiRequest<T = any>({
     // IF RESPONSE IS 403 then throw error TO GET TOKEN AGAIN
     try {
         
-        const response = await axios.request<T>(config);
-        if (response.status === 403) {
-            return response.data;
-        }
+        let response = await axios.request<T>(config);
+        return response;
     } catch (error: any) {
         throw error.response?.data || error.message || error;
     }

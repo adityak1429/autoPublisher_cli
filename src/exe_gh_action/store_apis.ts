@@ -145,7 +145,7 @@ export class StoreApis {
   }
 
   public async GetCurrentDraftSubmissionPackagesData(): Promise<
-    ResponseWrapper<unknown>
+    any
   > {
     return this.CreateStoreHttpRequest(
       "",
@@ -174,10 +174,11 @@ export class StoreApis {
   }
 
   private async UpdateStoreSubmissionPackages(
-    submission: unknown
+    submission: string
   ): Promise<ResponseWrapper<unknown>> {
+    console.log("Updating store submission packages with data:", submission);
     return this.CreateStoreHttpRequest(
-      JSON.stringify(submission),
+      submission,
       "PUT",
       `/submission/v1/product/${this.productId}/packages`
     );
@@ -431,20 +432,13 @@ export class StoreApis {
   public async UpdateProductPackages(
     updatedProductString: string
   ): Promise<unknown> {
-    if (!(await this.PollModuleStatus())) {
-      // Wait until all modules are in the ready state
-      return Promise.reject("Failed to poll module status.");
-    }
 
-    const updatedProductPackages = JSON.parse(updatedProductString);
-
-    console.log(updatedProductPackages);
 
     const updateSubmissionData = await this.UpdateStoreSubmissionPackages(
-      updatedProductPackages
+      updatedProductString
     );
-    console.log(JSON.stringify(updateSubmissionData));
 
+    
     if (!updateSubmissionData.isSuccess) {
       return Promise.reject(
         `Failed to update submission - ${JSON.stringify(
@@ -452,9 +446,12 @@ export class StoreApis {
         )}`
       );
     }
+    console.log("Updated package data");
+    
+
 
     console.log("Committing package changes...");
-
+    
     const commitResult = await this.CommitUpdateStoreSubmissionPackages();
     if (!commitResult.isSuccess) {
       return Promise.reject(
@@ -463,12 +460,7 @@ export class StoreApis {
         )}`
       );
     }
-    console.log(JSON.stringify(commitResult));
-
-    if (!(await this.PollModuleStatus())) {
-      // Wait until all modules are in the ready state
-      return Promise.reject("Failed to poll module status.");
-    }
+    console.log("commit package response",JSON.stringify(commitResult));
 
     return updateSubmissionData;
   }
@@ -520,8 +512,8 @@ export class StoreApis {
 
   public async GetExistingDraftListingAssets(
     listingLanguage: string
-  ): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
+  ): Promise<any> {
+    return new Promise<any>((resolve, reject) => {
       this.GetCurrentDraftListingAssets(listingLanguage)
         .then((draftListingAssetsResponse) => {
           if (!draftListingAssetsResponse.isSuccess) {
@@ -533,7 +525,7 @@ export class StoreApis {
               )}`
             );
           } else {
-            resolve(JSON.stringify(draftListingAssetsResponse.responseData));
+            resolve(draftListingAssetsResponse.responseData);
           }
         })
         .catch((error) => {
@@ -581,7 +573,7 @@ export class StoreApis {
     for (const update_request of list_of_update_requests) {
       const result = await this.UpdateCurrentDraftSubmissionMetadata(JSON.parse(update_request));
       if (!result.isSuccess) {
-        console.error(`Failed to update draft metadata for request: ${JSON.stringify(result.errors)} the request was: ${update_request}`);
+        console.error(`Failed to update draft metadata for request: ${JSON.stringify(result.errors,null,2)} the request was: ${update_request}`);
       }
       else
         console.log(`Draft metadata updated successfully for request: ${update_request}`);

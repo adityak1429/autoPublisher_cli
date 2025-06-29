@@ -106,7 +106,7 @@ jobs:
           interactive: ${{ github.event.inputs.interactive }}
           download: ${{ github.event.inputs.download }}
           product-id: 9NP0T3QQXL70
-          type: packaged
+          type: msix
           package: "${{ github.workspace }}/dir/apps"
           photos-path: "${{ github.workspace }}/dir/Photos"
           json-file-path: "${{ github.workspace }}/dir/metadata.json"
