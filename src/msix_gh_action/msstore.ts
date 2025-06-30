@@ -630,7 +630,7 @@ export class MSStoreClient {
             }
             const [, type, locale] = match;
             const langs = list_from_locale(locale,metadata_json);
-
+            console.log(`Processing file "${fileName}" with type "${type}" and locale(s) ${langs.join(", ")}`);
             if (ValidImageTypes.includes(type)) {
                 for (const loc of langs) {
                     if (
@@ -700,6 +700,7 @@ export class MSStoreClient {
             }
         }
     }
+    console.log("looka",JSON.stringify(metadata_json, null, 2));
     return metadata_json;
 }
 

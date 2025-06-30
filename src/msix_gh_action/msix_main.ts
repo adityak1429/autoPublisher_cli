@@ -195,7 +195,7 @@ function validate_media_files(mediaFiles: express.Multer.File[]): void {
             const dim = imageSize(file.buffer);
             const filename = file.originalname || file.filename;
             // Do nothing if valid, otherwise setFailed
-            if (!mediaTypeResolutions[filename.split('_')[0]].some(res => res.width === dim.width && res.height === dim.height)) {
+            if (!mediaTypeResolutions[filename.split('_')[0]]?.some(res => res.width === dim.width && res.height === dim.height)) {
               core.warning(`Image ${filename} is not recommended with dimensions ${dim.width}x${dim.height}. Expected one of: ${JSON.stringify(mediaTypeResolutions[filename.split('_')[0]])}`);
             }
         } catch (err) {
@@ -205,9 +205,9 @@ function validate_media_files(mediaFiles: express.Multer.File[]): void {
     }
 
     if (!allValid) {
-        core.warning("Some media files failed validation for 1:1 ratio or 1080x1080 resolution.");
+        core.warning("Some media files are not in recommended resolution.");
     } else {
-        core.info("All media files passed 1:1 and 1080x1080 validation.");
+        core.info("All media files are valid.");
     }
 }
 
@@ -252,7 +252,7 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
     }
     // Remove the json file from files_with_metadata
     mediaFiles = files_with_metadata
-      .filter((file: express.Multer.File) => file.filename.endsWith(".json"));
+      .filter((file: express.Multer.File) => !file.filename.endsWith(".json"));
     filteredMetadata_json = copy_visible_data_json(filteredMetadata_json,JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8")));
   
     if(core.getInput("download") === "true") {
@@ -297,7 +297,6 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
 
     return;
   }
-
   // Fetch the upload URL for the package
   core.info("Fetching upload URL for the package...");
   const uploadUrl = metadata_json.fileUploadUrl;
