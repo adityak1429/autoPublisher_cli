@@ -623,9 +623,12 @@ export class MSStoreClient {
             // Parse type and locale from naming convention: Screenshot_en_fasdf.png or Screenshot_all_gs.png
             // Example: Screenshot_en_fasdf.png -> type=Screenshot, locale=en
             // Example: Screenshot_all_gs.png -> type=Screenshot, locale=all
-            const nameParts = fileName.split("_");
-            const type = nameParts[0];
-            const locale = nameParts.length > 1 ? nameParts[1] : null;
+            const match = fileName.match(/^([^_]+)_([^_]+)_/);
+            if (!match) {
+                console.warn(`File name "${fileName}" does not match expected format. Skipping.`);
+                continue;
+            }
+            const [, type, locale] = match;
             const langs = list_from_locale(locale);
 
             if (ValidImageTypes.includes(type)) {
@@ -672,8 +675,8 @@ export class MSStoreClient {
             }
         }
 
-        console.log("check4...");
-    // Add all trailer images to metadata
+
+        // Add all trailer images to metadata
     for (const file of mediaFiles) {
         const fileName = file.filename || file.originalname;
         const nameParts = fileName.split("_");
