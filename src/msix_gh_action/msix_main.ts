@@ -11,30 +11,30 @@ import { BlockBlobClient } from "@azure/storage-blob";
 
 import artifact, {UploadArtifactOptions} from '@actions/artifact'
 const tmp = require('os').tmpdir();
-// import * as core from "@actions/core";
-import * as dotenv from "dotenv";
-dotenv.config();
-const core = {
-  getInput(name: string): string {
-    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-    return value || "";
-  },
-  setFailed(message: string): void {
-    console.error(`❌ ${message}`);
-  },
-  info(message: string): void {
-    console.info(`ℹ️ ${message}`);
-  },
-  warning(message: string): void {
-    console.warn(`⚠️ ${message}`);
-  },
-  setDebug(message: string): void {
-    console.debug(`🐞 ${message}`);
-  },
-  exportVariable(name: string, value: string): void {
-    process.env[name] = value;
-  }
-}
+import * as core from "@actions/core";
+// import * as dotenv from "dotenv";
+// dotenv.config();
+// const core = {
+//   getInput(name: string): string {
+//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+//     return value || "";
+//   },
+//   setFailed(message: string): void {
+//     console.error(`❌ ${message}`);
+//   },
+//   info(message: string): void {
+//     console.info(`ℹ️ ${message}`);
+//   },
+//   warning(message: string): void {
+//     console.warn(`⚠️ ${message}`);
+//   },
+//   setDebug(message: string): void {
+//     console.debug(`🐞 ${message}`);
+//   },
+//   exportVariable(name: string, value: string): void {
+//     process.env[name] = value;
+//   }
+// }
 let productId: string = "";
 let tenantId: string  = "";
 let clientId: string  = "";
