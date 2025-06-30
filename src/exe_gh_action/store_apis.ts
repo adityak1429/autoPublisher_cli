@@ -448,20 +448,6 @@ export class StoreApis {
     }
     console.log("Updated package data");
     
-
-
-    console.log("Committing package changes...");
-    
-    const commitResult = await this.CommitUpdateStoreSubmissionPackages();
-    if (!commitResult.isSuccess) {
-      return Promise.reject(
-        `Failed to commit the updated submission - ${JSON.stringify(
-          commitResult.errors
-        )}`
-      );
-    }
-    console.log("commit package response",JSON.stringify(commitResult));
-
     return updateSubmissionData;
   }
 

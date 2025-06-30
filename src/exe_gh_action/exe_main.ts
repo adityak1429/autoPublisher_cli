@@ -158,9 +158,13 @@ async function get_updated_metadata() {
   core.info("getting json metadata");
   let list_of_update_requests: string[] = [];
   const metadata_in_portal = await json_init();
+
   if(json_file_path) {
     updatedMetadata = await readJSONFile(json_file_path);
-    deepMergeSubset(updatedMetadata, metadata_in_portal);
+
+    updatedMetadata = deepMergeSubset(updatedMetadata, metadata_in_portal);
+    //143 temp
+    delete updatedMetadata.properties;
     list_of_update_requests = await update_metadata_list(updatedMetadata,metadata_in_portal);
 
   } else {
@@ -308,7 +312,6 @@ export async function exe_main() {
         //get_updated_metadata gets returns metadata from the json file and MAKES THE UPDATES to portal and returns the updated metadata
         const updatedMetadata = await get_updated_metadata();
 
-        return;
         const all_listing_langs = updatedMetadata.listings.map((listing: any) => listing.language);
 
         

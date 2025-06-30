@@ -223,7 +223,7 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
 
 
     if (jsonFileObject && typeof jsonFileObject === "object") {
-      metadata_json = deepMergeSubset(metadata_json, jsonFileObject);
+      metadata_json = deepMergeSubset(jsonFileObject,metadata_json);
     }
     core.info("Metadata JSON file read successfully.");
   }

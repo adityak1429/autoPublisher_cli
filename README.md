@@ -2,31 +2,35 @@
 
 **autoPublisher** is a GitHub Action that automates publishing updates to your apps in the Microsoft Store.
 
-## Prerequisites
+---
 
-- Complete the steps at [Associate an Azure AD application with your Partner Center account](https://learn.microsoft.com/en-us/windows/apps/publish/store-submission-api#how-to-associate-an-azure-ad-application-with-your-partner-center-account) to obtain your `client-id`, `client-secret`, and `tenant-id`.
+## 🚀 Prerequisites
+
+- [Associate an Azure AD application with your Partner Center account](https://learn.microsoft.com/en-us/windows/apps/publish/store-submission-api#how-to-associate-an-azure-ad-application-with-your-partner-center-account) to obtain your `client-id`, `client-secret`, and `tenant-id`.
 - Find your `seller-id` in Partner Center.
 
 **Example repository:**  
 [adityak1429/dummy_repo](https://github.com/adityak1429/dummy_repo/)
 
 > **Note:**  
-> Do not modify `applicationpackages` or `listings > ... > images` in the JSON file. These are handled automatically by the action.
+> Do not modify `applicationpackages` or `listings > ... > images` in the JSON file. These are handled automatically by the action (for MSIX).
+
+This action assumes you already have a packaged MSIX or signed EXE. It deploys the package, listing assets (screenshots, icon, etc.), and metadata to Partner Center.
 
 ---
 
-## Demo
+## 🎬 Demo
 
 > **Note:**  
-> In this demonstration, an MSIX package is already associated with the product name, the metadata has been initialized (by running the action with `json_init`), and several sample media files are prepared.
+> In this demonstration, an MSIX package is already associated with the product name, metadata has been initialized (by running the action with `json_init`), and several sample media files are prepared.
 
 <p align="center">
-    <img src="first_publish.gif" alt="Demo Video" width="500"/>
+  <img src="first_publish.gif" alt="Demo Video" width="500"/>
 </p>
 
 ---
 
-## Inputs
+## ⚙️ Inputs
 
 | Name             | Description                                                                                                                                                                                                                                         | Required | Default   |
 |------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------|
@@ -36,16 +40,23 @@
 | `tenant-id`      | Azure AD Tenant ID                                                                                                                                                                                                                                 | Yes      |           |
 | `client-id`      | App Client ID                                                                                                                                                                                                                                       | Yes      |           |
 | `client-secret`  | App Client Secret                                                                                                                                                                                                                                   | Yes      |           |
-| `package`        | Path to the app directory to upload. The action searches for MSIX packages in this path and uploads all packages found (for MSIX). For EXE, provide the package JSON file (see format by running the command for type `win32` and `package_json_init`). | No       |           |
+| `package`        | Path to the app directory to upload. For MSIX, the action uploads all packages found in this path. For EXE, provide the package JSON file (see format by running the command for type `win32` and `package_json_init`). | No       |           |
 | `photos-path`    | Path to the photos directory to upload. Uploads all photos in the directory. Prefix image names with the correct tag (e.g., `Screenshot_myss1.png`).                                                          | No       |           |
 | `json-file-path` | Path to the JSON file containing app metadata. Run the action with command `json_init` first to get the template JSON.                                                                                       | No       |           |
+| `interactive`    | `true`/`false` — Returns a URL where you can upload media/update metadata interactively.                                                                               | No       |           |
+| `download`       | `true`/`false` — If `true`, uploaded media files and updated metadata from the interactive URL are available to download as an artifact.                                | No       |           |
+| `append`         | `true`/`false` — If `true`, existing media assets are not deleted.                                                                                                     | No       |           |
+| `type`           | `win32`/`msix` — The type of product to interact with.                                                                                                                 | Yes      |           |
 
 ---
 
-## Valid Media Prefixes
+## 🖼️ Valid Media Prefixes
 
-Use the following prefixes for media files:
+**For EXE/MSI:**  
+- `Screenshot`
+- `Logo`
 
+**For MSIX:**  
 - `Screenshot`
 - `MobileScreenshot`
 - `XboxScreenshot`
@@ -65,7 +76,14 @@ Use the following prefixes for media files:
 
 ---
 
-## Example Workflow
+The `package` argument in the Win32 flow is the package JSON object, which can be obtained by running the action with the command `package_json_init`. You can add or remove packages from this array, which will be PUT using the API.
+
+> **Note:**  
+> Interactive mode for Win32 is under development.
+
+---
+
+## 📝 Example Workflow
 
 Below is an example workflow file (`myUpdate.yml`):
 
