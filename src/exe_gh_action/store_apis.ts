@@ -228,7 +228,7 @@ export class StoreApis {
     return this.CreateStoreHttpRequest(
       "",
       "GET",
-      `/submission/v1/product/${this.productId}/listings/assets?languages=${listingLanguages}`
+      `/submission/v1/product/${this.productId}/listings/assets${(listingLanguages && listingLanguages.length > 0) ? `?languages=${listingLanguages}` : ""}`
     );
   }
 
@@ -538,16 +538,15 @@ export class StoreApis {
     );
   }
 
-  public async CommitListingAssets(language: string, screenshots: Array<{ id: string, primaryAssetUploadUrl: string }>, logos: Array<{ id: string, primaryAssetUploadUrl: string }>) {
-    console.log("looka", language, screenshots, logos);
+  public async CommitListingAssets(language: string, screenshots: Array<{ id: string, assetUrl: string }>, logos: Array<{ id: string, assetUrl: string }>) {
     return this.CreateStoreHttpRequest(
       `{listingAssets: {
       language: "${language}",
       storeLogos: [
-        ${logos.map(l => `{ id: "${l.id}", assetUrl: "${l.primaryAssetUploadUrl}" }`).join(", ")}
+        ${logos.map(l => `{ id: "${l.id}", assetUrl: "${l.assetUrl}" }`).join(", ")}
     ],
       screenshots: [
-        ${screenshots.map(s => `{ id: "${s.id}", assetUrl: "${s.primaryAssetUploadUrl}" }`).join(", ")}
+        ${screenshots.map(s => `{ id: "${s.id}", assetUrl: "${s.assetUrl}" }`).join(", ")}
       ]
     }}`,
       "PUT",
@@ -560,6 +559,7 @@ export class StoreApis {
       const result = await this.UpdateCurrentDraftSubmissionMetadata(JSON.parse(update_request));
       if (!result.isSuccess) {
         console.error(`Failed to update draft metadata for request: ${JSON.stringify(result.errors,null,2)} the request was: ${update_request}`);
+        throw new Error(`123`);
       }
       else
         console.log(`Draft metadata updated successfully for request: ${update_request}`);

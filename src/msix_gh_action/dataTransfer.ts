@@ -1,10 +1,6 @@
 import express from "express";
-import multer from "multer";
-import http from "http";
 import axios from "axios";
 import FormData from "form-data";
-import fs from "fs";
-import path from "path";
 
 let pollUrl: string = "";
 const host_url =  "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net";

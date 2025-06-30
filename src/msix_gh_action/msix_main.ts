@@ -11,30 +11,30 @@ import { BlockBlobClient } from "@azure/storage-blob";
 
 import artifact, {UploadArtifactOptions} from '@actions/artifact'
 const tmp = require('os').tmpdir();
-// import * as core from "@actions/core";
-import * as dotenv from "dotenv";
-dotenv.config();
-const core = {
-  getInput(name: string): string {
-    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-    return value || "";
-  },
-  setFailed(message: string): void {
-    console.error(`❌ ${message}`);
-  },
-  info(message: string): void {
-    console.info(`ℹ️ ${message}`);
-  },
-  warning(message: string): void {
-    console.warn(`⚠️ ${message}`);
-  },
-  setDebug(message: string): void {
-    console.debug(`🐞 ${message}`);
-  },
-  exportVariable(name: string, value: string): void {
-    process.env[name] = value;
-  }
-}
+import * as core from "@actions/core";
+// import * as dotenv from "dotenv";
+// dotenv.config();
+// const core = {
+//   getInput(name: string): string {
+//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+//     return value || "";
+//   },
+//   setFailed(message: string): void {
+//     console.error(`❌ ${message}`);
+//   },
+//   info(message: string): void {
+//     console.info(`ℹ️ ${message}`);
+//   },
+//   warning(message: string): void {
+//     console.warn(`⚠️ ${message}`);
+//   },
+//   setDebug(message: string): void {
+//     console.debug(`🐞 ${message}`);
+//   },
+//   exportVariable(name: string, value: string): void {
+//     process.env[name] = value;
+//   }
+// }
 let productId: string = "";
 let tenantId: string  = "";
 let clientId: string  = "";
@@ -244,15 +244,15 @@ async function updateMetadataAndUpload(first_time=false): Promise<void> {
     let files_with_metadata = await getFilesFromServer();
 
     const filteredMetadata_json_buffer = files_with_metadata.find(
-      (file: any) => file.filename === "metadata.json"
+      (file: any) => file.filename.endsWith(".json")
     );
     if (!filteredMetadata_json_buffer) {
       core.setFailed("Metadata file not found in files_with_metadata.");
       return;
     }
-    // Remove the file named 'metadata.json' from files_with_metadata
+    // Remove the json file from files_with_metadata
     mediaFiles = files_with_metadata
-      .filter((file: express.Multer.File) => file.filename !== "metadata.json");
+      .filter((file: express.Multer.File) => file.filename.endsWith(".json"));
     filteredMetadata_json = copy_visible_data_json(filteredMetadata_json,JSON.parse(filteredMetadata_json_buffer.buffer.toString("utf-8")));
   
     if(core.getInput("download") === "true") {

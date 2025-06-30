@@ -1,28 +1,28 @@
-// import * as core from "@actions/core";
-import * as dotenv from "dotenv";
-dotenv.config();
-const core = {
-  getInput(name: string): string {
-    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-    return value || "";
-  },
-  setFailed(message: string): void {
-    console.error(`❌ ${message}`);
-  },
-  info(message: string): void {
-    console.info(`ℹ️ ${message}`);
-  },
-  warning(message: string): void {
-    console.warn(`⚠️ ${message}`);
-  },
-  setDebug(message: string): void {
-    console.debug(`🐞 ${message}`);
-  },
-  exportVariable(name: string, value: string): void {
-    process.env[name] = value;
-    core.info(`Set environment variable: ${name}`);
-  }
-}
+import * as core from "@actions/core";
+// import * as dotenv from "dotenv";
+// dotenv.config();
+// const core = {
+//   getInput(name: string): string {
+//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+//     return value || "";
+//   },
+//   setFailed(message: string): void {
+//     console.error(`❌ ${message}`);
+//   },
+//   info(message: string): void {
+//     console.info(`ℹ️ ${message}`);
+//   },
+//   warning(message: string): void {
+//     console.warn(`⚠️ ${message}`);
+//   },
+//   setDebug(message: string): void {
+//     console.debug(`🐞 ${message}`);
+//   },
+//   exportVariable(name: string, value: string): void {
+//     process.env[name] = value;
+//     core.info(`Set environment variable: ${name}`);
+//   }
+// }
 import { msix_main } from "./msix_gh_action/msix_main";
 import { exe_main } from "./exe_gh_action/exe_main";
 

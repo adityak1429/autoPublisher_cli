@@ -2,30 +2,30 @@
 import { StoreApis, EnvVariablePrefix } from "./store_apis";
 const storeApis = new StoreApis();
 import { uploadFileToBlob, getFilesNamesFromDirectory, readJSONFile, deepMergeSubset } from '../common_functions';
-// import * as core from "@actions/core";
-import * as dotenv from "dotenv";
-dotenv.config();
-const core = {
-  getInput(name: string): string {
-    const value = process.env[name.replace(/-/g, "_").toUpperCase()];
-    return value || "";
-  },
-  setFailed(message: string): void {
-    console.error(`❌ ${message}`);
-  },
-  info(message: string): void {
-    console.info(`ℹ️ ${message}`);
-  },
-  warning(message: string): void {
-    console.warn(`⚠️ ${message}`);
-  },
-  setDebug(message: string): void {
-    console.debug(`🐞 ${message}`);
-  },
-  exportVariable(name: string, value: string): void {
-    process.env[name] = value;
-  }
-}
+import * as core from "@actions/core";
+// import * as dotenv from "dotenv";
+// dotenv.config();
+// const core = {
+//   getInput(name: string): string {
+//     const value = process.env[name.replace(/-/g, "_").toUpperCase()];
+//     return value || "";
+//   },
+//   setFailed(message: string): void {
+//     console.error(`❌ ${message}`);
+//   },
+//   info(message: string): void {
+//     console.info(`ℹ️ ${message}`);
+//   },
+//   warning(message: string): void {
+//     console.warn(`⚠️ ${message}`);
+//   },
+//   setDebug(message: string): void {
+//     console.debug(`🐞 ${message}`);
+//   },
+//   exportVariable(name: string, value: string): void {
+//     process.env[name] = value;
+//   }
+// }
 
    
 async function setEnvVariables() {
@@ -73,20 +73,6 @@ async function getMetadata() {
 }
 
 
-  
-
-async function poll_submission(pollingSubmissionId: string) {
-
-  if (!pollingSubmissionId) {
-    core.setFailed(`polling-submission-id parameter cannot be empty.`);
-    return;
-  }
-
-  const publishingStatus = await storeApis.PollSubmissionStatus(
-    pollingSubmissionId
-  );
-  core.info(`submission-status: ${publishingStatus}`);
-}
 
 async function json_init() {
         const metadataString = await getMetadata();
@@ -172,7 +158,6 @@ async function get_updated_metadata() {
   }
 
   await storeApis.UpdateDraftMetadataList(list_of_update_requests);
-
   return updatedMetadata
 }
 
@@ -181,7 +166,8 @@ async function generate_languageFilesMap(filesArray: { originalname: string; fil
 
   for (const {originalname, filePath} of filesArray) {
     const fileName = originalname.split(/[\\/]/).pop() || "";
-    const match = fileName.match(/^(Screenshot|Logo)_(\w+)_/i);
+    console.log(`Processing file: ${fileName}`);
+    const match = fileName.match(/^(Screenshot|Logo)_([^_]+)_/i);
     if (match) {
       const [, type, language] = match;
 
@@ -219,12 +205,12 @@ async function generate_languageFilesMap(filesArray: { originalname: string; fil
 }
 
 async function create_and_commit_listing_assets(languageFilesMap: Record<string, { screenshots: string[]; logos: string[] }>) {
+  let draft_listing_assets:any = {};
+  if(core.getInput("append") === "true") {
+    draft_listing_assets = (await storeApis.GetExistingDraftListingAssets(""));
+  }
     for (const [language, files] of Object.entries(languageFilesMap)) {
     let create_response:any;
-    let draft_listing_assets:any = {};
-    if(core.getInput("append") === "true") {
-      draft_listing_assets = (await storeApis.GetExistingDraftListingAssets(language));
-    }
     if (files.screenshots.length > 0 || files.logos.length > 0) {
       //get asset upload urls for the language
       create_response = await storeApis.CreateListingAssets(language, files.screenshots.length, files.logos.length);
@@ -252,9 +238,18 @@ async function create_and_commit_listing_assets(languageFilesMap: Record<string,
       }
 
       // commit the listing assets for the language
-      //143 commit differently if append is true or false
-      let screenshotsToCommit = create_response.responseData.listingAssets.screenshots || [];
-      let logosToCommit = create_response.responseData.listingAssets.storeLogos || [];
+      let screenshotsToCommit = (create_response.responseData.listingAssets.screenshots || []).map(
+        (screenshot: { id: string; primaryAssetUploadUrl: string; secondaryAssetUploadUrl?: string }) => ({
+          id: screenshot.id,
+          assetUrl: screenshot.primaryAssetUploadUrl,
+        })
+      );
+      let logosToCommit = (create_response.responseData.listingAssets.storeLogos || []).map(
+        (screenshot: { id: string; primaryAssetUploadUrl: string; secondaryAssetUploadUrl?: string }) => ({
+          id: screenshot.id,
+          assetUrl: screenshot.primaryAssetUploadUrl,
+        })
+      );;
       if (core.getInput("append") === "true") {
         if (draft_listing_assets && draft_listing_assets.listingAssets) {
           // If append is true, merge existing screenshots and logos with new ones
@@ -262,14 +257,20 @@ async function create_and_commit_listing_assets(languageFilesMap: Record<string,
             ...(draft_listing_assets.listingAssets.find((obj: any) => obj.language === language)?.screenshots || []),
             ...screenshotsToCommit
           ];
-          logosToCommit = [
-            ...(draft_listing_assets.listingAssets.find((obj: any) => obj.language === language)?.storeLogos || []),
-            ...logosToCommit
-          ];
+          // there can only be one storeLogo per language
+          if(logosToCommit.length < 1) {
+            //if no logos are provided, use the existing ones
+            logosToCommit = draft_listing_assets.listingAssets.find((obj: any) => obj.language === language)?.storeLogos || [];
+          }
         }
       }
-      (await storeApis.CommitListingAssets(language, screenshotsToCommit, logosToCommit));
-      core.info(`Committed listing assets for language: ${language}`);
+      console.log(`Committing listing assets for language: ${language}`);
+      console.log(`Screenshots to commit: ${(screenshotsToCommit.length)}`);
+      console.log(`Logos to commit: ${(logosToCommit.length)}`);
+      // Commit the listing assets
+      const status_code =  (await storeApis.CommitListingAssets(language, screenshotsToCommit, logosToCommit));
+      core.info(`Committed listing assets for language: ${language} with status code: ${status_code}`);
+      console.log(JSON.stringify(status_code));
   }
 }
 }
@@ -297,8 +298,12 @@ export async function exe_main() {
         await setEnvVariables();
         const packages_array = (await storeApis.GetCurrentDraftSubmissionPackagesData()).responseData;
         // Ensure each package has a genericDocUrl; set a default if missing (not sure if this is needed)
+        //Required if packageType is exe Link to document containing details of custom error codes for the EXE type installer
         for (const pkg of packages_array.packages) {
           if (!pkg.genericDocUrl) {
+            // for demo purposes, we set a default URL if genericDocUrl is not present
+            // In a real scenario, you might want to ask the user to provide this URL
+            console.warn(`Package ${pkg.name} does not have a genericDocUrl. Setting default.`);
             pkg.genericDocUrl = "https://docs.contoso.com/doclink";
           }
         }
@@ -311,7 +316,6 @@ export async function exe_main() {
 
         //get_updated_metadata gets returns metadata from the json file and MAKES THE UPDATES to portal and returns the updated metadata
         const updatedMetadata = await get_updated_metadata();
-
         const all_listing_langs = updatedMetadata.listings.map((listing: any) => listing.language);
 
         
@@ -329,7 +333,10 @@ export async function exe_main() {
         core.info(`Updated product packages: ${JSON.stringify(updateSubmissionData)}`);
         const submissionId = await storeApis.PublishSubmission();
         core.info(`Submission ID: ${submissionId}`);
-        await poll_submission(submissionId);
+        // const publishingStatus = await storeApis.PollSubmissionStatus(
+        //   submissionId
+        // );
+        // core.info(`submission-status: ${publishingStatus}`);
         break;
       }
 
