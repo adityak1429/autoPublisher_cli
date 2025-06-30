@@ -500,7 +500,7 @@ export class MSStoreClient {
     
     async add_files_to_metadata(productId: string, metadata_json: any, packageFiles: any, mediaFiles: any, append: boolean = false): Promise<any> {
         
-        function list_from_locale(locale: string): string[] {
+        function list_from_locale(locale: string, metadata_json:any): string[] {
             if (locale.startsWith("all")) {
                 // Exclude locales listed after 'all', e.g., all_en,fr
                 const excludeList = locale.length > 3 ? locale.slice(4).split(",") : [];
@@ -629,7 +629,7 @@ export class MSStoreClient {
                 continue;
             }
             const [, type, locale] = match;
-            const langs = list_from_locale(locale);
+            const langs = list_from_locale(locale,metadata_json);
 
             if (ValidImageTypes.includes(type)) {
                 for (const loc of langs) {
@@ -685,7 +685,7 @@ export class MSStoreClient {
 
         if(type === "TrailerImage" ) {
             console.log(`Adding trailer image ${fileName} to metadata_json`);
-            const langs = list_from_locale(locale);
+            const langs = list_from_locale(locale,metadata_json);
             for (const trailer of metadata_json.trailers) {
                 for (const loc of langs) {
                 if (trailer.trailerAssets && trailer.trailerAssets[loc]) {
