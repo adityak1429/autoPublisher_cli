@@ -149,7 +149,7 @@ async function get_updated_metadata() {
     updatedMetadata = await readJSONFile(json_file_path);
 
     updatedMetadata = deepMergeSubset(updatedMetadata, metadata_in_portal);
-    //143 temp
+    //143 deleting since privacy policy and terms of use are not needed in the json file becuase they cant be updated
     delete updatedMetadata.properties;
     list_of_update_requests = await update_metadata_list(updatedMetadata,metadata_in_portal);
 
@@ -290,7 +290,9 @@ export async function exe_main() {
 
       case "json_init": {
         await setEnvVariables();
-        core.info(JSON.stringify(await json_init(), null, 2));
+        const metadata = await json_init();
+        delete metadata.properties; // since privacy policy and terms of use are not needed in the json file becuase they cant be updated
+        core.info(JSON.stringify(metadata, null, 2));
         break;
       }
 
@@ -307,7 +309,7 @@ export async function exe_main() {
             pkg.genericDocUrl = "https://docs.contoso.com/doclink";
           }
         }
-        core.info(JSON.stringify(packages_array, null, 2));
+        core.info(JSON.stringify(packages_array));
         break;
       }
 
