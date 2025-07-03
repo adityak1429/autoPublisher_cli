@@ -3,7 +3,7 @@ import axios from "axios";
 import FormData from "form-data";
 
 let pollUrl: string = "";
-const host_url =  "https://intern-project-gectfacbdbdbfndb.eastasia-01.azurewebsites.net";
+const host_url =  "https://pdp-preview-afa7dkhaf2c6fdew.canadacentral-01.azurewebsites.net";
 // const host_url =  "http://localhost:3000";
 
 /**

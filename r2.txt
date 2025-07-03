@@ -1,3 +1,0 @@
-Allowed Values in hardwareItemType = Memory: 300MB, 750MB, 1GB, 2GB, 4GB, 6GB, 8GB, 12GB, 16GB, 20GB
-Allowed Values in hardwareItemType = DirectX: DX9, DX10, DX11, DX12-FEATURELEVEL11, DX12-FEATURELEVEL12
-Allowed Values in hardwareItemType = Video_Memory: 1GB, 2GB, 4GB, 6GB
