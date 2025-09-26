@@ -1,3 +1,4 @@
+Note: checkout microsoft/msstore-cli because it seems convinient too
 # autoPublisher
 
 **autoPublisher** is a GitHub Action that automates publishing updates to your apps in the Microsoft Store.
